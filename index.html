@@ -66,15 +66,9 @@
     
     .menu-list { display: flex; flex-direction: column; gap: 6px; }
     .menu-item {
-      padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text-muted);
-      transition: 0.2s; border: 1px solid transparent; text-align: left; background: transparent; width: 100%;
-      font-weight: 500; display: flex; align-items: center; gap: 8px;
-    }
-    .menu-item:hover { background: #edf3ef; color: var(--text-main); }
-    .menu-item.active {
-      background: rgba(0, 121, 52, 0.1); color: var(--cmaa-green-dark);
-      border-color: rgba(0, 121, 52, 0.3); font-weight: 600;
-      border-left: 4px solid var(--cmaa-green-dark);
+      padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--cmaa-green-dark);
+      background: rgba(0, 121, 52, 0.1); border-color: rgba(0, 121, 52, 0.3); font-weight: 600;
+      border-left: 4px solid var(--cmaa-green-dark); display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 1px solid transparent;
     }
 
     /* Conteúdo Principal */
@@ -89,9 +83,6 @@
     .user-info { font-size: 0.85rem; color: var(--text-muted); }
 
     .content-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
-
-    .view-container { display: none; flex-direction: column; gap: 24px; }
-    .view-container.active { display: flex; }
 
     /* Barra de Ações e Filtros */
     .controls {
@@ -153,31 +144,6 @@
     .actions { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
     .actions button { flex: 1; font-size: 0.78rem; padding: 6px 8px; }
 
-    /* Dashboard / Indicadores */
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-    .kpi-card {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-      padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
-    }
-    .kpi-title { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
-    .kpi-value { font-size: 1.8rem; font-weight: 700; color: var(--cmaa-charcoal); }
-    
-    .chart-container {
-      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
-      padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 16px;
-    }
-    .chart-title { font-size: 1rem; font-weight: 600; color: var(--cmaa-charcoal); margin: 0; }
-    .bar-row { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; }
-    .bar-label { width: 140px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .bar-track { flex: 1; background: #eef2ef; border-radius: 4px; height: 16px; overflow: hidden; display: flex; }
-    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
-    .bar-value { width: 90px; text-align: right; font-weight: 600; color: var(--cmaa-charcoal); }
-
-    /* Legenda de Comparação Mensal */
-    .legend-container { display: flex; gap: 20px; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
-    .legend-item { display: flex; align-items: center; gap: 6px; }
-    .legend-color { width: 14px; height: 14px; border-radius: 3px; }
-
     /* Modal */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
@@ -210,8 +176,7 @@
       </div>
       <h2>Navegação</h2>
       <div class="menu-list">
-        <button class="menu-item active" id="menu-tasks" onclick="switchView('tasks')">📋 Atividades</button>
-        <button class="menu-item" id="menu-indicators" onclick="switchView('indicators')">📊 Indicadores</button>
+        <div class="menu-item">📋 Atividades (Chamados G&G)</div>
       </div>
     </aside>
 
@@ -227,105 +192,36 @@
 
       <div class="content-body">
         
-        <!-- VISÃO 1: ATIVIDADES -->
-        <div id="view-tasks" class="view-container active">
-          <div class="controls">
-            <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
-            
-            <select id="filter-bucket" onchange="renderTasks()">
-              <option value="">Todos os Buckets (Colunas)</option>
-            </select>
+        <!-- VISÃO DE ATIVIDADES -->
+        <div class="controls">
+          <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
+          
+          <select id="filter-bucket" onchange="renderTasks()">
+            <option value="">Todos os Buckets (Colunas)</option>
+          </select>
 
-            <select id="filter-status" onchange="renderTasks()">
-              <option value="open">Pendentes e Em Andamento</option>
-              <option value="all">Todas as Tarefas</option>
-              <option value="completed">Concluídas (100%)</option>
-            </select>
+          <select id="filter-status" onchange="renderTasks()">
+            <option value="open">Pendentes e Em Andamento</option>
+            <option value="all">Todas as Tarefas</option>
+            <option value="completed">Concluídas (100%)</option>
+          </select>
 
-            <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar</button>
-          </div>
-
-          <div class="time-section">
-            <h3><span>⚡ Criadas esta semana</span><span id="count-week" class="count-pill">0</span></h3>
-            <div id="grid-week" class="grid"></div>
-          </div>
-
-          <div class="time-section">
-            <h3><span>📅 Criadas este mês</span><span id="count-month" class="count-pill">0</span></h3>
-            <div id="grid-month" class="grid"></div>
-          </div>
-
-          <div class="time-section">
-            <h3><span>🗂️ Outras (Anteriores)</span><span id="count-others" class="count-pill">0</span></h3>
-            <div id="grid-others" class="grid"></div>
-          </div>
+          <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar</button>
         </div>
 
-        <!-- VISÃO 2: INDICADORES -->
-        <div id="view-indicators" class="view-container">
-          <!-- Filtros de Período e Status -->
-          <div class="controls">
-            <span style="font-weight: 600; font-size: 0.9rem;">Período (Início):</span>
-            <input type="date" id="kpi-date-start" onchange="renderIndicators()">
-            
-            <span style="font-weight: 600; font-size: 0.9rem;">Até:</span>
-            <input type="date" id="kpi-date-end" onchange="renderIndicators()">
+        <div class="time-section">
+          <h3><span>⚡ Criadas esta semana</span><span id="count-week" class="count-pill">0</span></h3>
+          <div id="grid-week" class="grid"></div>
+        </div>
 
-            <select id="kpi-filter-status" onchange="renderIndicators()">
-              <option value="all">Todos os Status</option>
-              <option value="completed">Apenas Concluídas</option>
-              <option value="open">Apenas Pendentes / Em Andamento</option>
-            </select>
+        <div class="time-section">
+          <h3><span>📅 Criadas este mês</span><span id="count-month" class="count-pill">0</span></h3>
+          <div id="grid-month" class="grid"></div>
+        </div>
 
-            <button class="secondary" onclick="resetKpiFilters()">Limpar Filtros</button>
-          </div>
-
-          <!-- Cards de KPI -->
-          <div class="kpi-grid">
-            <div class="kpi-card">
-              <span class="kpi-title">Total de Chamados</span>
-              <span class="kpi-value" id="kpi-total">0</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-title">SLA Médio Geral</span>
-              <span class="kpi-value" id="kpi-avg-sla" style="color: var(--cmaa-green-dark);">0 dias</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-title">Taxa de Conclusão</span>
-              <span class="kpi-value" id="kpi-rate">0%</span>
-            </div>
-          </div>
-
-          <!-- Gráfico de Volume e Percentual por Bucket -->
-          <div class="chart-container">
-            <h3 class="chart-title">📊 Volume e Percentual (%) por Bucket</h3>
-            <div id="bucket-chart-bars" style="display: flex; flex-direction: column; gap: 12px;">
-              <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando métricas...</span>
-            </div>
-          </div>
-
-          <!-- Gráfico Horizontal: Chamados Abertos vs Concluídos por Mês -->
-          <div class="chart-container">
-            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-              <h3 class="chart-title" style="margin: 0;">📅 Chamados Abertos x Concluídos por Mês</h3>
-              <div class="legend-container">
-                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-green-dark);"></div> Abertos (Início)</div>
-                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-lime);"></div> Concluídos (Fechamento)</div>
-              </div>
-            </div>
-            <div id="monthly-comparison-bars" style="display: flex; flex-direction: column; gap: 14px;">
-              <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando comparativo mensal...</span>
-            </div>
-          </div>
-
-          <!-- Gráfico Horizontal: SLA Médio por Mês -->
-          <div class="chart-container">
-            <h3 class="chart-title">⏱️ SLA Médio por Mês (Baseado na Conclusão)</h3>
-            <div id="monthly-sla-bars" style="display: flex; flex-direction: column; gap: 12px;">
-              <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando SLA médio mensal...</span>
-            </div>
-          </div>
-
+        <div class="time-section">
+          <h3><span>🗂️ Outras (Anteriores)</span><span id="count-others" class="count-pill">0</span></h3>
+          <div id="grid-others" class="grid"></div>
         </div>
 
       </div>
@@ -416,20 +312,6 @@
     document.getElementById("user-info").innerText = `${currentAccount.name} (${currentAccount.username})`;
   }
 
-  function switchView(viewName) {
-    document.querySelectorAll(".menu-item").forEach(el => el.classList.remove("active"));
-    document.querySelectorAll(".view-container").forEach(el => el.classList.remove("active"));
-
-    if (viewName === 'tasks') {
-      document.getElementById("menu-tasks").classList.add("active");
-      document.getElementById("view-tasks").classList.add("active");
-    } else {
-      document.getElementById("menu-indicators").classList.add("active");
-      document.getElementById("view-indicators").classList.add("active");
-      renderIndicators();
-    }
-  }
-
   async function getAccessToken() {
     const request = { scopes: graphScopes, account: currentAccount };
     try {
@@ -493,9 +375,6 @@
       const tasksData = await graphFetch(`/planner/plans/${chamadosPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
       renderTasks();
-      if (document.getElementById("view-indicators").classList.contains("active")) {
-        renderIndicators();
-      }
     } catch (error) {
       console.error(error);
     }
@@ -608,203 +487,6 @@
     gridWeek.innerHTML = weekCount > 0 ? weekHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa criada nesta semana.</p>";
     gridMonth.innerHTML = monthCount > 0 ? monthHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa criada neste mês.</p>";
     gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
-  }
-
-  function resetKpiFilters() {
-    document.getElementById("kpi-date-start").value = "";
-    document.getElementById("kpi-date-end").value = "";
-    document.getElementById("kpi-filter-status").value = "all";
-    renderIndicators();
-  }
-
-  // Renderizar o Dashboard de Indicadores com Filtros de Data e Status
-  async function renderIndicators() {
-    const kpiStatus = document.getElementById("kpi-filter-status").value;
-    const dateStartVal = document.getElementById("kpi-date-start").value;
-    const dateEndVal = document.getElementById("kpi-date-end").value;
-
-    const startDate = dateStartVal ? new Date(dateStartVal + "T00:00:00") : null;
-    const endDate = dateEndVal ? new Date(dateEndVal + "T23:59:59") : null;
-
-    let filteredTasks = allTasks.filter(t => {
-      // 1. Filtro de Status
-      if (kpiStatus === "completed" && t.percentComplete !== 100) return false;
-      if (kpiStatus === "open" && t.percentComplete === 100) return false;
-
-      // 2. Filtro de Data (Baseado na data de início / criação)
-      if (t.createdDateTime) {
-        const created = new Date(t.createdDateTime);
-        if (startDate && created < startDate) return false;
-        if (endDate && created > endDate) return false;
-      } else if (startDate || endDate) {
-        return false;
-      }
-
-      return true;
-    });
-
-    const total = filteredTasks.length;
-    const done = filteredTasks.filter(t => t.percentComplete === 100).length;
-    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
-
-    // Cálculo do SLA Médio Geral
-    let totalDays = 0;
-    let countedTasks = 0;
-    filteredTasks.forEach(t => {
-      if (t.createdDateTime) {
-        const start = new Date(t.createdDateTime);
-        const end = t.completedDateTime ? new Date(t.completedDateTime) : (t.dueDateTime ? new Date(t.dueDateTime) : new Date());
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        totalDays += diffDays;
-        countedTasks++;
-      }
-    });
-    const avgSla = countedTasks > 0 ? (totalDays / countedTasks).toFixed(1) : 0;
-
-    document.getElementById("kpi-total").innerText = total;
-    document.getElementById("kpi-avg-sla").innerText = avgSla + " dias";
-    document.getElementById("kpi-rate").innerText = rate + "%";
-
-    // 1. Volume e Percentual (%) por Bucket
-    let bucketCounts = {};
-    Object.values(bucketsMap).forEach(bName => bucketCounts[bName] = 0);
-    
-    filteredTasks.forEach(t => {
-      const bName = bucketsMap[t.bucketId] || "Geral";
-      bucketCounts[bName] = (bucketCounts[bName] || 0) + 1;
-    });
-
-    const chartContainer = document.getElementById("bucket-chart-bars");
-    let barsHtml = "";
-    const maxVal = Math.max(...Object.values(bucketCounts), 1);
-
-    Object.entries(bucketCounts).forEach(([bName, count]) => {
-      const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
-      const barPct = Math.round((count / maxVal) * 100);
-      barsHtml += `
-        <div class="bar-row">
-          <span class="bar-label" title="${bName}">${bName}</span>
-          <div class="bar-track">
-            <div class="bar-fill" style="width: ${barPct}%; background: var(--cmaa-green-dark);"></div>
-          </div>
-          <span class="bar-value">${count} (${pct}%)</span>
-        </div>
-      `;
-    });
-    chartContainer.innerHTML = barsHtml || "<span style='color: var(--text-muted);'>Nenhum dado disponível.</span>";
-
-    // 2. Gráfico Horizontal: Chamados Abertos (Data de Início) x Concluídos (Data de Conclusão) por Mês
-    let monthlyComparison = {}; // { "MM/YYYY": { abertos: 0, concluidos: 0 } }
-
-    filteredTasks.forEach(t => {
-      // Chamados Abertos por mês (considerando data de início/criação)
-      if (t.createdDateTime) {
-        const cDate = new Date(t.createdDateTime);
-        const monthKey = `${String(cDate.getMonth() + 1).padStart(2, '0')}/${cDate.getFullYear()}`;
-        if (!monthlyComparison[monthKey]) monthlyComparison[monthKey] = { abertos: 0, concluidos: 0 };
-        monthlyComparison[monthKey].abertos++;
-      }
-
-      // Chamados Concluídos por mês (considerando data de conclusão)
-      if (t.percentComplete === 100 && t.completedDateTime) {
-        const compDate = new Date(t.completedDateTime);
-        const monthKey = `${String(compDate.getMonth() + 1).padStart(2, '0')}/${compDate.getFullYear()}`;
-        if (!monthlyComparison[monthKey]) monthlyComparison[monthKey] = { abertos: 0, concluidos: 0 };
-        monthlyComparison[monthKey].concluidos++;
-      }
-    });
-
-    const monthlyContainer = document.getElementById("monthly-comparison-bars");
-    let monthlyHtml = "";
-    const sortedMonths = Object.keys(monthlyComparison).sort();
-
-    if (sortedMonths.length === 0) {
-      monthlyHtml = "<span style='color: var(--text-muted); font-size: 0.85rem;'>Nenhum dado para exibir no período selecionado.</span>";
-    } else {
-      let maxMonthVal = 1;
-      sortedMonths.forEach(m => {
-        const d = monthlyComparison[m];
-        if (d.abertos > maxMonthVal) maxMonthVal = d.abertos;
-        if (d.concluidos > maxMonthVal) maxMonthVal = d.concluidos;
-      });
-
-      sortedMonths.forEach(m => {
-        const d = monthlyComparison[m];
-        const pctAbertos = Math.round((d.abertos / maxMonthVal) * 100);
-        const pctConcluidos = Math.round((d.concluidos / maxMonthVal) * 100);
-
-        monthlyHtml += `
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <span style="font-weight: 600; font-size: 0.85rem; color: var(--cmaa-charcoal);">${m}</span>
-            <div class="bar-row">
-              <span class="bar-label" style="font-size:0.8rem;">Abertos: ${d.abertos}</span>
-              <div class="bar-track">
-                <div class="bar-fill" style="width: ${pctAbertos}%; background: var(--cmaa-green-dark);"></div>
-              </div>
-              <span class="bar-value">${d.abertos}</span>
-            </div>
-            <div class="bar-row">
-              <span class="bar-label" style="font-size:0.8rem;">Concluídos: ${d.concluidos}</span>
-              <div class="bar-track">
-                <div class="bar-fill" style="width: ${pctConcluidos}%; background: var(--cmaa-lime);"></div>
-              </div>
-              <span class="bar-value">${d.concluidos}</span>
-            </div>
-          </div>
-          <hr style="border: none; border-top: 1px solid var(--border); margin: 4px 0;">
-        `;
-      });
-    }
-    monthlyContainer.innerHTML = monthlyHtml;
-
-    // 3. Gráfico Horizontal: SLA Médio por Mês (Baseado na Data de Conclusão)
-    let monthlySla = {}; // { "MM/YYYY": { sum: 0, count: 0 } }
-
-    filteredTasks.forEach(t => {
-      if (t.percentComplete === 100 && t.createdDateTime && t.completedDateTime) {
-        const compDate = new Date(t.completedDateTime);
-        const monthKey = `${String(compDate.getMonth() + 1).padStart(2, '0')}/${compDate.getFullYear()}`;
-        
-        const start = new Date(t.createdDateTime);
-        const diffDays = Math.ceil(Math.abs(compDate - start) / (1000 * 60 * 60 * 24));
-
-        if (!monthlySla[monthKey]) monthlySla[monthKey] = { sum: 0, count: 0 };
-        monthlySla[monthKey].sum += diffDays;
-        monthlySla[monthKey].count++;
-      }
-    });
-
-    const monthlySlaContainer = document.getElementById("monthly-sla-bars");
-    let monthlySlaHtml = "";
-    const sortedSlaMonths = Object.keys(monthlySla).sort();
-
-    if (sortedSlaMonths.length === 0) {
-      monthlySlaHtml = "<span style='color: var(--text-muted); font-size: 0.85rem;'>Nenhum chamado concluído com data de encerramento registrada para cálculo mensal de SLA.</span>";
-    } else {
-      let maxSlaAvg = 1;
-      sortedSlaMonths.forEach(m => {
-        const avg = monthlySla[m].sum / monthlySla[m].count;
-        if (avg > maxSlaAvg) maxSlaAvg = avg;
-      });
-
-      sortedSlaMonths.forEach(m => {
-        const data = monthlySla[m];
-        const avgDays = (data.sum / data.count).toFixed(1);
-        const barPct = Math.round((avgDays / maxSlaAvg) * 100);
-
-        monthlySlaHtml += `
-          <div class="bar-row">
-            <span class="bar-label">${m}</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: ${barPct}%; background: var(--cmaa-green-mid);"></div>
-            </div>
-            <span class="bar-value">${avgDays} dias</span>
-          </div>
-        `;
-      });
-    }
-    monthlySlaContainer.innerHTML = monthlySlaHtml;
   }
 
   async function quickUpdateStatus(taskId, etag, newPercent) {
