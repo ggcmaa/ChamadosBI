@@ -45,9 +45,7 @@
       border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,0.08);
       display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 420px; width: 100%;
     }
-    .login-logo {
-      max-width: 200px; height: auto;
-    }
+    .login-logo { max-width: 200px; height: auto; }
     #login-screen h1 { font-size: 1.5rem; margin: 4px 0 0 0; color: var(--cmaa-charcoal); }
     #login-screen p { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 8px 0; line-height: 1.5; }
 
@@ -63,18 +61,17 @@
       display: flex; flex-direction: column; align-items: center; padding-bottom: 16px;
       border-bottom: 1px solid var(--border); gap: 10px;
     }
-    .sidebar-logo {
-      max-width: 150px; height: auto;
-    }
+    .sidebar-logo { max-width: 150px; height: auto; }
     aside h2 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; margin: 0; color: var(--text-muted); }
     
-    .plan-list { display: flex; flex-direction: column; gap: 6px; }
-    .plan-item {
+    .menu-list { display: flex; flex-direction: column; gap: 6px; }
+    .menu-item {
       padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text-muted);
       transition: 0.2s; border: 1px solid transparent; text-align: left; background: transparent; width: 100%;
+      font-weight: 500; display: flex; align-items: center; gap: 8px;
     }
-    .plan-item:hover { background: #edf3ef; color: var(--text-main); }
-    .plan-item.active {
+    .menu-item:hover { background: #edf3ef; color: var(--text-main); }
+    .menu-item.active {
       background: rgba(0, 121, 52, 0.1); color: var(--cmaa-green-dark);
       border-color: rgba(0, 121, 52, 0.3); font-weight: 600;
       border-left: 4px solid var(--cmaa-green-dark);
@@ -92,6 +89,10 @@
     .user-info { font-size: 0.85rem; color: var(--text-muted); }
 
     .content-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+
+    /* Views (Atividades vs Indicadores) */
+    .view-container { display: none; flex-direction: column; gap: 24px; }
+    .view-container.active { display: flex; }
 
     /* Barra de Ações e Filtros */
     .controls {
@@ -153,6 +154,26 @@
     .actions { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
     .actions button { flex: 1; font-size: 0.78rem; padding: 6px 8px; }
 
+    /* Dashboard / Indicadores */
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .kpi-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px;
+    }
+    .kpi-title { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+    .kpi-value { font-size: 1.8rem; font-weight: 700; color: var(--cmaa-charcoal); }
+    
+    .chart-container {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 16px;
+    }
+    .chart-title { font-size: 1rem; font-weight: 600; color: var(--cmaa-charcoal); margin: 0; }
+    .bar-row { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; }
+    .bar-label { width: 160px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { flex: 1; background: #eef2ef; border-radius: 4px; height: 16px; overflow: hidden; }
+    .bar-fill { background: var(--cmaa-green-dark); height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+    .bar-value { width: 40px; text-align: right; font-weight: 600; color: var(--cmaa-charcoal); }
+
     /* Modal */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
@@ -178,14 +199,15 @@
   <!-- TELA 2: GESTÃO -->
   <div id="app-screen" style="display: none;">
     
-    <!-- Menu Lateral com Logo e Equipe Filtrada -->
+    <!-- Menu Lateral com Logo e Navegação -->
     <aside>
       <div class="sidebar-brand">
         <img src="CMAA.png" alt="Logo CMAA" class="sidebar-logo">
       </div>
-      <h2>Equipes e Planos</h2>
-      <div id="sidebar-plans" class="plan-list">
-        <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando equipes...</span>
+      <h2>Navegação</h2>
+      <div class="menu-list">
+        <button class="menu-item active" id="menu-tasks" onclick="switchView('tasks')">📋 Atividades</button>
+        <button class="menu-item" id="menu-indicators" onclick="switchView('indicators')">📊 Indicadores</button>
       </div>
     </aside>
 
@@ -200,47 +222,70 @@
       </header>
 
       <div class="content-body">
-        <!-- Barra de Filtros -->
-        <div class="controls">
-          <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
-          
-          <select id="filter-bucket" onchange="renderTasks()">
-            <option value="">Todos os Buckets (Colunas)</option>
-          </select>
+        
+        <!-- VISÃO 1: ATIVIDADES -->
+        <div id="view-tasks" class="view-container active">
+          <div class="controls">
+            <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
+            
+            <select id="filter-bucket" onchange="renderTasks()">
+              <option value="">Todos os Buckets (Colunas)</option>
+            </select>
 
-          <select id="filter-status" onchange="renderTasks()">
-            <option value="open">Pendentes e Em Andamento</option>
-            <option value="all">Todas as Tarefas</option>
-            <option value="completed">Concluídas (100%)</option>
-          </select>
+            <select id="filter-status" onchange="renderTasks()">
+              <option value="open">Pendentes e Em Andamento</option>
+              <option value="all">Todas as Tarefas</option>
+              <option value="completed">Concluídas (100%)</option>
+            </select>
 
-          <button class="secondary" onclick="loadTasksForSelectedPlan()">↻ Atualizar</button>
+            <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar</button>
+          </div>
+
+          <div class="time-section">
+            <h3><span>⚡ Criadas esta semana</span><span id="count-week" class="count-pill">0</span></h3>
+            <div id="grid-week" class="grid"></div>
+          </div>
+
+          <div class="time-section">
+            <h3><span>📅 Criadas este mês</span><span id="count-month" class="count-pill">0</span></h3>
+            <div id="grid-month" class="grid"></div>
+          </div>
+
+          <div class="time-section">
+            <h3><span>🗂️ Outras (Anteriores)</span><span id="count-others" class="count-pill">0</span></h3>
+            <div id="grid-others" class="grid"></div>
+          </div>
         </div>
 
-        <!-- Seções Separadas por Data de Criação -->
-        <div class="time-section">
-          <h3>
-            <span>⚡ Criadas esta semana</span>
-            <span id="count-week" class="count-pill">0</span>
-          </h3>
-          <div id="grid-week" class="grid"></div>
+        <!-- VISÃO 2: INDICADORES -->
+        <div id="view-indicators" class="view-container">
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <span class="kpi-title">Total de Chamados</span>
+              <span class="kpi-value" id="kpi-total">0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Concluídos</span>
+              <span class="kpi-value" id="kpi-done" style="color: var(--success);">0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Em Andamento</span>
+              <span class="kpi-value" id="kpi-progress" style="color: var(--warning);">0</span>
+            </div>
+            <div class="kpi-card">
+              <span class="kpi-title">Taxa de Conclusão</span>
+              <span class="kpi-value" id="kpi-rate">0%</span>
+            </div>
+          </div>
+
+          <div class="chart-container">
+            <h3 class="chart-title">📊 Chamados por Bucket (Coluna)</h3>
+            <div id="bucket-chart-bars" style="display: flex; flex-direction: column; gap: 10px;">
+              <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando métricas...</span>
+            </div>
+          </div>
         </div>
 
-        <div class="time-section">
-          <h3>
-            <span>📅 Criadas este mês</span>
-            <span id="count-month" class="count-pill">0</span>
-          </h3>
-          <div id="grid-month" class="grid"></div>
-        </div>
-
-        <div class="time-section">
-          <h3>
-            <span>🗂️ Outras (Anteriores)</span>
-            <span id="count-others" class="count-pill">0</span>
-          </h3>
-          <div id="grid-others" class="grid"></div>
-        </div>
       </div>
     </div>
   </div>
@@ -296,14 +341,14 @@
   let allTasks = [];
   let bucketsMap = {}; 
   let userCache = {};  
-  let selectedPlanId = null;
+  let chamadosPlanId = null;
 
   window.addEventListener("DOMContentLoaded", () => {
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
       currentAccount = accounts[0];
       showAppScreen();
-      loadUserPlans();
+      findChamadosPlan();
     }
   });
 
@@ -312,7 +357,7 @@
       const loginResponse = await msalInstance.loginPopup({ scopes: graphScopes });
       currentAccount = loginResponse.account;
       showAppScreen();
-      loadUserPlans();
+      findChamadosPlan();
     } catch (error) {
       console.error("Erro no login:", error);
       alert("Falha na autenticação. Verifique o console.");
@@ -327,6 +372,20 @@
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app-screen").style.display = "flex";
     document.getElementById("user-info").innerText = `${currentAccount.name} (${currentAccount.username})`;
+  }
+
+  function switchView(viewName) {
+    document.querySelectorAll(".menu-item").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".view-container").forEach(el => el.classList.remove("active"));
+
+    if (viewName === 'tasks') {
+      document.getElementById("menu-tasks").classList.add("active");
+      document.getElementById("view-tasks").classList.add("active");
+    } else {
+      document.getElementById("menu-indicators").classList.add("active");
+      document.getElementById("view-indicators").classList.add("active");
+      renderIndicators();
+    }
   }
 
   async function getAccessToken() {
@@ -355,58 +414,32 @@
     return response.status === 204 ? null : response.json();
   }
 
-  async function loadUserPlans() {
-    const sidebar = document.getElementById("sidebar-plans");
-    sidebar.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Buscando equipes...</span>';
-
+  async function findChamadosPlan() {
     try {
       const groupsData = await graphFetch("/me/memberOf?$select=id,displayName");
       const groups = groupsData.value.filter(g => g["@odata.type"] === "#microsoft.graph.group");
 
-      let html = "";
-      let firstPlanId = null;
-
       for (const group of groups) {
-        // Filtra estritamente apenas a equipe "Chamados G&G"
         if (!group.displayName.toLowerCase().includes("chamados g&g")) continue;
-
-        try {
-          const plansData = await graphFetch(`/groups/${group.id}/planner/plans`);
-          if (plansData.value && plansData.value.length > 0) {
-            for (const plan of plansData.value) {
-              if (!firstPlanId) firstPlanId = plan.id;
-              html += `<button class="plan-item" id="plan-btn-${plan.id}" onclick="selectPlan('${plan.id}', '${group.displayName} ➔ ${plan.title}')">${group.displayName}<br><strong style="font-size:0.8rem">${plan.title}</strong></button>`;
-            }
-          }
-        } catch (e) {}
+        const plansData = await graphFetch(`/groups/${group.id}/planner/plans`);
+        if (plansData.value && plansData.value.length > 0) {
+          chamadosPlanId = plansData.value[0].id;
+          document.getElementById("current-plan-title").innerText = `${group.displayName} ➔ ${plansData.value[0].title}`;
+          loadChamadosPlan();
+          return;
+        }
       }
-
-      sidebar.innerHTML = html || '<span style="color:var(--text-muted)">Nenhum plano encontrado para Chamados G&G.</span>';
-
-      if (firstPlanId) {
-        const firstBtn = document.getElementById(`plan-btn-${firstPlanId}`);
-        if (firstBtn) firstBtn.click();
-      }
+      alert("Nenhum plano encontrado para 'Chamados G&G'.");
     } catch (error) {
-      sidebar.innerHTML = '<span style="color:var(--danger)">Erro ao carregar equipes.</span>';
+      console.error("Erro ao localizar plano:", error);
     }
   }
 
-  function selectPlan(planId, titleText) {
-    document.querySelectorAll(".plan-item").forEach(el => el.classList.remove("active"));
-    const btn = document.getElementById(`plan-btn-${planId}`);
-    if (btn) btn.classList.add("active");
-
-    selectedPlanId = planId;
-    document.getElementById("current-plan-title").innerText = titleText;
-    loadTasksForSelectedPlan();
-  }
-
-  async function loadTasksForSelectedPlan() {
-    if (!selectedPlanId) return;
+  async function loadChamadosPlan() {
+    if (!chamadosPlanId) return;
 
     try {
-      const bucketsData = await graphFetch(`/planner/plans/${selectedPlanId}/buckets`);
+      const bucketsData = await graphFetch(`/planner/plans/${chamadosPlanId}/buckets`);
       bucketsMap = {};
       let bucketSelectHtml = '<option value="">Todos os Buckets (Colunas)</option>';
       (bucketsData.value || []).forEach(b => {
@@ -415,7 +448,7 @@
       });
       document.getElementById("filter-bucket").innerHTML = bucketSelectHtml;
 
-      const tasksData = await graphFetch(`/planner/plans/${selectedPlanId}/tasks`);
+      const tasksData = await graphFetch(`/planner/plans/${chamadosPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
       renderTasks();
     } catch (error) {
@@ -482,14 +515,8 @@
       if (isDone) { statusLabel = "Concluída"; badgeClass = ""; cardClass = "completed"; }
       else if (isProgress) { statusLabel = "Em andamento"; badgeClass = "progress"; cardClass = "in-progress"; }
 
-      const createdFormatted = task.createdDateTime
-        ? new Date(task.createdDateTime).toLocaleDateString("pt-BR")
-        : "N/D";
-
-      const dueFormatted = task.dueDateTime 
-        ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) 
-        : "Sem prazo";
-
+      const createdFormatted = task.createdDateTime ? new Date(task.createdDateTime).toLocaleDateString("pt-BR") : "N/D";
+      const dueFormatted = task.dueDateTime ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "Sem prazo";
       const bucketName = bucketsMap[task.bucketId] || "Geral";
       const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
 
@@ -538,13 +565,59 @@
     gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
   }
 
+  // Renderizar o Dashboard de Indicadores
+  function renderIndicators() {
+    const total = allTasks.length;
+    const done = allTasks.filter(t => t.percentComplete === 100).length;
+    const inProgress = allTasks.filter(t => t.percentComplete > 0 && t.percentComplete < 100).length;
+    const rate = total > 0 ? Math.round((done / total) * 100) : 0;
+
+    document.getElementById("kpi-total").innerText = total;
+    document.getElementById("kpi-done").innerText = done;
+    document.getElementById("kpi-progress").innerText = inProgress;
+    document.getElementById("kpi-rate").innerText = rate + "%";
+
+    // Contagem por Bucket
+    let bucketCounts = {};
+    Object.values(bucketsMap).forEach(bName => bucketCounts[bName] = 0);
+    
+    allTasks.forEach(t => {
+      const bName = bucketsMap[t.bucketId] || "Geral";
+      bucketCounts[bName] = (bucketCounts[bName] || 0) + 1;
+    });
+
+    const chartContainer = document.getElementById("bucket-chart-bars");
+    if (Object.keys(bucketCounts).length === 0) {
+      chartContainer.innerHTML = "<span style='color: var(--text-muted);'>Nenhum dado de bucket disponível.</span>";
+      return;
+    }
+
+    let barsHtml = "";
+    const maxVal = Math.max(...Object.values(bucketCounts), 1);
+
+    Object.entries(bucketCounts).forEach(([bName, count]) => {
+      const pct = Math.round((count / maxVal) * 100);
+      barsHtml += `
+        <div class="bar-row">
+          <span class="bar-label" title="${bName}">${bName}</span>
+          <div class="bar-track">
+            <div class="bar-fill" style="width: ${pct}%;"></div>
+          </div>
+          <span class="bar-value">${count}</span>
+        </div>
+      `;
+    });
+
+    chartContainer.innerHTML = barsHtml;
+  }
+
   async function quickUpdateStatus(taskId, etag, newPercent) {
     try {
       await graphFetch(`/planner/tasks/${taskId}`, "PATCH", { percentComplete: newPercent }, etag);
-      loadTasksForSelectedPlan();
+      loadChamadosPlan();
     } catch (error) {
       alert("Erro ao atualizar status. Atualizando lista...");
-      loadTasksForSelectedPlan();
+      loadChamadosPlan();
     }
   }
 
@@ -577,7 +650,7 @@
     try {
       await graphFetch(`/planner/tasks/${id}`, "PATCH", payload, etag);
       document.getElementById("edit-modal").close();
-      loadTasksForSelectedPlan();
+      loadChamadosPlan();
     } catch (error) {
       alert("Erro ao salvar edição: " + error.message);
     }
