@@ -90,7 +90,6 @@
 
     .content-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
 
-    /* Views (Atividades vs Indicadores) */
     .view-container { display: none; flex-direction: column; gap: 24px; }
     .view-container.active { display: flex; }
 
@@ -169,10 +168,18 @@
     }
     .chart-title { font-size: 1rem; font-weight: 600; color: var(--cmaa-charcoal); margin: 0; }
     .bar-row { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; }
-    .bar-label { width: 160px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-label { width: 180px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .bar-track { flex: 1; background: #eef2ef; border-radius: 4px; height: 16px; overflow: hidden; }
     .bar-fill { background: var(--cmaa-green-dark); height: 100%; border-radius: 4px; transition: width 0.4s ease; }
-    .bar-value { width: 40px; text-align: right; font-weight: 600; color: var(--cmaa-charcoal); }
+    .bar-value { width: 80px; text-align: right; font-weight: 600; color: var(--cmaa-charcoal); }
+
+    /* Tabela de SLA Detalhado */
+    .table-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: var(--shadow); overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-main); }
+    th { background: #f8faf9; font-weight: 600; color: var(--cmaa-charcoal); }
+    .status-ok { color: var(--success); font-weight: 600; }
+    .status-late { color: var(--danger); font-weight: 600; }
 
     /* Modal */
     dialog {
@@ -199,7 +206,7 @@
   <!-- TELA 2: GESTÃO -->
   <div id="app-screen" style="display: none;">
     
-    <!-- Menu Lateral com Logo e Navegação -->
+    <!-- Menu Lateral -->
     <aside>
       <div class="sidebar-brand">
         <img src="CMAA.png" alt="Logo CMAA" class="sidebar-logo">
@@ -259,18 +266,26 @@
 
         <!-- VISÃO 2: INDICADORES -->
         <div id="view-indicators" class="view-container">
+          <!-- Filtro exclusivo para Indicadores -->
+          <div class="controls">
+            <span style="font-weight: 600; font-size: 0.9rem;">Filtro de Indicadores:</span>
+            <select id="kpi-filter-status" onchange="renderIndicators()">
+              <option value="all">Todos os Status</option>
+              <option value="completed">Apenas Concluídas</option>
+              <option value="open">Apenas Pendentes / Em Andamento</option>
+            </select>
+            <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar Dados</button>
+          </div>
+
+          <!-- Cards de KPI -->
           <div class="kpi-grid">
             <div class="kpi-card">
               <span class="kpi-title">Total de Chamados</span>
               <span class="kpi-value" id="kpi-total">0</span>
             </div>
             <div class="kpi-card">
-              <span class="kpi-title">Concluídos</span>
-              <span class="kpi-value" id="kpi-done" style="color: var(--success);">0</span>
-            </div>
-            <div class="kpi-card">
-              <span class="kpi-title">Em Andamento</span>
-              <span class="kpi-value" id="kpi-progress" style="color: var(--warning);">0</span>
+              <span class="kpi-title">SLA Médio Geral</span>
+              <span class="kpi-value" id="kpi-avg-sla" style="color: var(--cmaa-green-dark);">0 dias</span>
             </div>
             <div class="kpi-card">
               <span class="kpi-title">Taxa de Conclusão</span>
@@ -278,11 +293,40 @@
             </div>
           </div>
 
+          <!-- Gráfico de Volume e Percentual por Bucket -->
           <div class="chart-container">
-            <h3 class="chart-title">📊 Chamados por Bucket (Coluna)</h3>
-            <div id="bucket-chart-bars" style="display: flex; flex-direction: column; gap: 10px;">
+            <h3 class="chart-title">📊 Volume e Percentual (%) por Bucket</h3>
+            <div id="bucket-chart-bars" style="display: flex; flex-direction: column; gap: 12px;">
               <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando métricas...</span>
             </div>
+          </div>
+
+          <!-- SLA Médio por Mês (Baseado na Conclusão) -->
+          <div class="chart-container">
+            <h3 class="chart-title">📅 SLA Médio por Mês (Data de Conclusão)</h3>
+            <div id="monthly-sla-bars" style="display: flex; flex-direction: column; gap: 12px;">
+              <span style="color: var(--text-muted); font-size: 0.85rem;">Calculando SLA mensal...</span>
+            </div>
+          </div>
+
+          <!-- Tabela de SLA Detalhado por Atividade -->
+          <div class="table-container">
+            <h3 class="chart-title" style="margin-bottom: 12px;">📋 Detalhamento de SLA por Chamado</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Atividade</th>
+                  <th>Bucket</th>
+                  <th>Criação (Início)</th>
+                  <th>Conclusão / Prazo</th>
+                  <th>Tempo Gasto (Dias)</th>
+                  <th>Status de Prazo</th>
+                </tr>
+              </thead>
+              <tbody id="sla-table-body">
+                <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Carregando dados...</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -451,6 +495,9 @@
       const tasksData = await graphFetch(`/planner/plans/${chamadosPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
       renderTasks();
+      if (document.getElementById("view-indicators").classList.contains("active")) {
+        renderIndicators();
+      }
     } catch (error) {
       console.error(error);
     }
@@ -565,55 +612,166 @@
     gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
   }
 
-  // Renderizar o Dashboard de Indicadores
-  function renderIndicators() {
-    const total = allTasks.length;
-    const done = allTasks.filter(t => t.percentComplete === 100).length;
-    const inProgress = allTasks.filter(t => t.percentComplete > 0 && t.percentComplete < 100).length;
+  // Renderizar o Dashboard de Indicadores com Filtro de Status
+  async function renderIndicators() {
+    const kpiStatus = document.getElementById("kpi-filter-status").value;
+
+    let filteredTasks = allTasks.filter(t => {
+      if (kpiStatus === "completed" && t.percentComplete !== 100) return false;
+      if (kpiStatus === "open" && t.percentComplete === 100) return false;
+      return true;
+    });
+
+    const total = filteredTasks.length;
+    const done = filteredTasks.filter(t => t.percentComplete === 100).length;
     const rate = total > 0 ? Math.round((done / total) * 100) : 0;
 
+    // Cálculo do SLA Médio Geral (Diferença entre criação e conclusão / prazo)
+    let totalDays = 0;
+    let countedTasks = 0;
+    filteredTasks.forEach(t => {
+      if (t.createdDateTime) {
+        const start = new Date(t.createdDateTime);
+        // Se concluída ou com prazo, usa a data correspondente
+        const end = t.completedDateTime ? new Date(t.completedDateTime) : (t.dueDateTime ? new Date(t.dueDateTime) : new Date());
+        const diffTime = Math.abs(end - start);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        totalDays += diffDays;
+        countedTasks++;
+      }
+    });
+    const avgSla = countedTasks > 0 ? (totalDays / countedTasks).toFixed(1) : 0;
+
     document.getElementById("kpi-total").innerText = total;
-    document.getElementById("kpi-done").innerText = done;
-    document.getElementById("kpi-progress").innerText = inProgress;
+    document.getElementById("kpi-avg-sla").innerText = avgSla + " dias";
     document.getElementById("kpi-rate").innerText = rate + "%";
 
-    // Contagem por Bucket
+    // 1. Volume e Percentual (%) por Bucket
     let bucketCounts = {};
     Object.values(bucketsMap).forEach(bName => bucketCounts[bName] = 0);
     
-    allTasks.forEach(t => {
+    filteredTasks.forEach(t => {
       const bName = bucketsMap[t.bucketId] || "Geral";
       bucketCounts[bName] = (bucketCounts[bName] || 0) + 1;
     });
 
     const chartContainer = document.getElementById("bucket-chart-bars");
-    if (Object.keys(bucketCounts).length === 0) {
-      chartContainer.innerHTML = "<span style='color: var(--text-muted);'>Nenhum dado de bucket disponível.</span>";
-      return;
-    }
-
     let barsHtml = "";
     const maxVal = Math.max(...Object.values(bucketCounts), 1);
 
     Object.entries(bucketCounts).forEach(([bName, count]) => {
-      const pct = Math.round((count / maxVal) * 100);
+      const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+      const barPct = Math.round((count / maxVal) * 100);
       barsHtml += `
         <div class="bar-row">
           <span class="bar-label" title="${bName}">${bName}</span>
           <div class="bar-track">
-            <div class="bar-fill" style="width: ${pct}%;"></div>
+            <div class="bar-fill" style="width: ${barPct}%;"></div>
           </div>
-          <span class="bar-value">${count}</span>
+          <span class="bar-value">${count} (${pct}%)</span>
         </div>
       `;
     });
+    chartContainer.innerHTML = barsHtml || "<span style='color: var(--text-muted);'>Nenhum dado disponível.</span>";
 
-    chartContainer.innerHTML = barsHtml;
+    // 2. SLA Médio por Mês (Data de Conclusão)
+    let monthlySla = {};
+    filteredTasks.forEach(t => {
+      if (t.createdDateTime && t.completedDateTime) {
+        const compDate = new Date(t.completedDateTime);
+        const monthKey = `${String(compDate.getMonth() + 1).padStart(2, '0')}/${compDate.getFullYear()}`;
+        
+        const start = new Date(t.createdDateTime);
+        const diffDays = Math.ceil(Math.abs(compDate - start) / (1000 * 60 * 60 * 24));
+
+        if (!monthlySla[monthKey]) monthlySla[monthKey] = { sum: 0, count: 0 };
+        monthlySla[monthKey].sum += diffDays;
+        monthlySla[monthKey].count++;
+      }
+    });
+
+    const monthlyContainer = document.getElementById("monthly-sla-bars");
+    let monthlyHtml = "";
+    const sortedMonths = Object.keys(monthlySla).sort();
+
+    if (sortedMonths.length === 0) {
+      monthlyHtml = "<span style='color: var(--text-muted); font-size: 0.85rem;'>Nenhum chamado concluído com data registrada para cálculo mensal.</span>";
+    } else {
+      let maxMonthlyAvg = 1;
+      sortedMonths.forEach(m => {
+        const avg = monthlySla[m].sum / monthlySla[m].count;
+        if (avg > maxMonthlyAvg) maxMonthlyAvg = avg;
+      });
+
+      sortedMonths.forEach(m => {
+        const data = monthlySla[m];
+        const avgDays = (data.sum / data.count).toFixed(1);
+        const barPct = Math.round((avgDays / maxMonthlyAvg) * 100);
+        monthlyHtml += `
+          <div class="bar-row">
+            <span class="bar-label">Mês: ${m}</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${barPct}%; background: var(--cmaa-green-mid);"></div>
+            </div>
+            <span class="bar-value">${avgDays} dias</span>
+          </div>
+        `;
+      });
+    }
+    monthlyContainer.innerHTML = monthlyHtml;
+
+    // 3. Tabela Detalhada de SLA por Atividade
+    const tableBody = document.getElementById("sla-table-body");
+    let tableHtml = "";
+
+    for (const t of filteredTasks) {
+      const bName = bucketsMap[t.bucketId] || "Geral";
+      const created = t.createdDateTime ? new Date(t.createdDateTime).toLocaleDateString("pt-BR") : "-";
+      const due = t.dueDateTime ? new Date(t.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : (t.completedDateTime ? new Date(t.completedDateTime).toLocaleDateString("pt-BR") : "Pendente");
+      
+      let daysSpent = "-";
+      let statusSla = "-";
+
+      if (t.createdDateTime) {
+        const start = new Date(t.createdDateTime);
+        const end = t.completedDateTime ? new Date(t.completedDateTime) : new Date();
+        const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
+        daysSpent = diffDays + " dias";
+
+        if (t.dueDateTime) {
+          const dueDate = new Date(t.dueDateTime);
+          if (end <= dueDate) {
+            statusSla = `<span class="status-ok">No Prazo</span>`;
+          } else {
+            statusSla = `<span class="status-late">Atrasado</span>`;
+          }
+        } else {
+          statusSla = `<span style="color: var(--text-muted)">Sem Prazo Fixo</span>`;
+        }
+      }
+
+      tableHtml += `
+        <tr>
+          <td><strong>${t.title}</strong></td>
+          <td>${bName}</td>
+          <td>${created}</td>
+          <td>${due}</td>
+          <td>${daysSpent}</td>
+          <td>${statusSla}</td>
+        </tr>
+      `;
+    }
+
+    tableBody.innerHTML = tableHtml || `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum registro encontrado.</td></tr>`;
   }
 
   async function quickUpdateStatus(taskId, etag, newPercent) {
     try {
-      await graphFetch(`/planner/tasks/${taskId}`, "PATCH", { percentComplete: newPercent }, etag);
+      const payload = { percentComplete: newPercent };
+      if (newPercent === 100) {
+        payload.completedDateTime = new Date().toISOString();
+      }
+      await graphFetch(`/planner/tasks/${taskId}`, "PATCH", payload, etag);
       loadChamadosPlan();
     } catch (error) {
       alert("Erro ao atualizar status. Atualizando lista...");
@@ -646,6 +804,10 @@
       percentComplete: percentComplete,
       dueDateTime: dueDate ? `${dueDate}T18:00:00Z` : null
     };
+
+    if (percentComplete === 100) {
+      payload.completedDateTime = new Date().toISOString();
+    }
 
     try {
       await graphFetch(`/planner/tasks/${id}`, "PATCH", payload, etag);
