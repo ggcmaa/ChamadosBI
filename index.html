@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gestão de Atividades - Planner</title>
+  <!-- Biblioteca Oficial MSAL.js 2.x -->
+  <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
+  <style>
+    :root {
+      --bg-main: #0d1117;
+      --bg-card: #161b22;
+      --border: #30363d;
+      --text-main: #e6edf3;
+      --text-muted: #8b949e;
+      --accent: #2ea043;
+      --accent-hover: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+    }
+
+    * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+    body { background: var(--bg-main); color: var(--text-main); margin: 0; padding: 24px; }
+    
+    .container { max-width: 1100px; margin: 0 auto; }
+    
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+    }
+
+    h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 10px; }
+    
+    button {
+      background: var(--accent); color: #fff; border: none; padding: 8px 16px;
+      border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s;
+    }
+    button:hover { background: var(--accent-hover); }
+    button.secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); }
+    button.secondary:hover { border-color: var(--text-muted); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .controls {
+      display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
+      background: var(--bg-card); padding: 16px; border-radius: 8px; border: 1px solid var(--border);
+    }
+
+    select, input[type="text"], input[type="date"] {
+      background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);
+      padding: 8px 12px; border-radius: 6px; outline: none;
+    }
+    input[type="text"] { flex: 1; min-width: 220px; }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px;
+    }
+    .card.completed { opacity: 0.6; border-left: 4px solid var(--accent); }
+    .card.in-progress { border-left: 4px solid var(--warning); }
+
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .task-title { font-weight: 600; font-size: 1rem; margin: 0; line-height: 1.4; }
+    
+    .badge {
+      font-size: 0.75rem; padding: 3px 8px; border-radius: 12px;
+      background: rgba(46, 160, 67, 0.15); color: var(--accent-hover); white-space: nowrap;
+    }
+    .badge.progress { background: rgba(210, 153, 34, 0.15); color: var(--warning); }
+    .badge.pending { background: rgba(139, 148, 158, 0.15); color: var(--text-muted); }
+
+    .meta { font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
+    
+    .actions { display: flex; gap: 8px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+    .actions button { flex: 1; font-size: 0.8rem; padding: 6px 10px; }
+
+    /* Modal simples para edição */
+    dialog {
+      background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
+      border-radius: 8px; padding: 20px; width: 90%; max-width: 450px;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
+    .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <div>
+      <h1>Gestão de Tarefas — Planner</h1>
+      <small id="user-info" style="color: var(--text-muted);">Não autenticado</small>
+    </div>
+    <div>
+      <button id="btn-login" onclick="signIn()">Entrar com Microsoft</button>
+      <button id="btn-logout" class="secondary" onclick="signOut()" style="display:none;">Sair</button>
+    </div>
+  </header>
+
+  <main id="app-content" style="display:none;">
+    <!-- Barra de Criação e Filtro -->
+    <div class="controls">
+      <select id="filter-status" onchange="renderTasks()">
+        <option value="open">Pendentes e Em Andamento</option>
+        <option value="all">Todas as Tarefas</option>
+        <option value="completed">Concluídas (100%)</option>
+      </select>
+
+      <select id="select-plan-create" title="Selecione o Plano para nova tarefa">
+        <option value="">Carregando planos...</option>
+      </select>
+
+      <input type="text" id="new-task-title" placeholder="Título da nova atividade...">
+      <input type="date" id="new-task-due" title="Prazo de entrega">
+      <button onclick="createTask()">+ Nova Tarefa</button>
+      <button class="secondary" onclick="loadAllData()">↻ Atualizar</button>
+    </div>
+
+    <!-- Lista de Tarefas -->
+    <div id="tasks-grid" class="grid"></div>
+  </main>
+</div>
+
+<!-- Modal de Edição -->
+<dialog id="edit-modal">
+  <h3 style="margin-top:0;">Editar Atividade</h3>
+  <input type="hidden" id="edit-task-id">
+  <input type="hidden" id="edit-task-etag">
+  
+  <div class="form-group">
+    <label>Título da Tarefa</label>
+    <input type="text" id="edit-title">
+  </div>
+  
+  <div class="form-group">
+    <label>Progresso</label>
+    <select id="edit-progress">
+      <option value="0">Não Iniciada (0%)</option>
+      <option value="50">Em Andamento (50%)</option>
+      <option value="100">Concluída (100%)</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label>Data de Conclusão (Prazo)</label>
+    <input type="date" id="edit-due">
+  </div>
+
+  <div class="modal-footer">
+    <button class="secondary" onclick="document.getElementById('edit-modal').close()">Cancelar</button>
+    <button onclick="saveTaskEdit()">Salvar Alterações</button>
+  </div>
+</dialog>
+
+<script>
+  // =========================================================================
+  // 1. CONFIGURAÇÃO DO ENTRA ID (SUBSTITUA PELOS SEUS DADOS DO AZURE)
+  // =========================================================================
+  const msalConfig = {
+    auth: {
+      clientId: "SEU_CLIENT_ID_AQUI",
+      authority: "https://login.microsoftonline.com/SEU_TENANT_ID_AQUI",
+      redirectUri: window.location.origin + window.location.pathname
+    },
+    cache: {
+      cacheLocation: "sessionStorage",
+      storeAuthStateInCookie: false
+    }
+  };
+
+  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All"];
+  const msalInstance = new msal.PublicClientApplication(msalConfig);
+
+  let currentAccount = null;
+  let allTasks = [];
+  let plansMap = {}; // Cache de nomes de planos: { planId: "Nome do Plano" }
+
+  // Verifica se já existe sessão ativa ao carregar a página
+  window.addEventListener("DOMContentLoaded", () => {
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length > 0) {
+      currentAccount = accounts[0];
+      updateUIState(true);
+      loadAllData();
+    }
+  });
+
+  // =========================================================================
+  // 2. AUTENTICAÇÃO (LOGIN / LOGOUT / TOKEN)
+  // =========================================================================
+  async function signIn() {
+    try {
+      const loginResponse = await msalInstance.loginPopup({ scopes: graphScopes });
+      currentAccount = loginResponse.account;
+      updateUIState(true);
+      loadAllData();
+    } catch (error) {
+      console.error("Erro no login:", error);
+      alert("Falha na autenticação. Verifique o console ou as configurações do Azure.");
+    }
+  }
+
+  function signOut() {
+    msalInstance.logoutPopup({ account: currentAccount });
+  }
+
+  async function getAccessToken() {
+    const request = { scopes: graphScopes, account: currentAccount };
+    try {
+      const response = await msalInstance.acquireTokenSilent(request);
+      return response.accessToken;
+    } catch (error) {
+      const response = await msalInstance.acquireTokenPopup(request);
+      return response.accessToken;
+    }
+  }
+
+  function updateUIState(isLoggedIn) {
+    document.getElementById("btn-login").style.display = isLoggedIn ? "none" : "inline-block";
+    document.getElementById("btn-logout").style.display = isLoggedIn ? "inline-block" : "none";
+    document.getElementById("app-content").style.display = isLoggedIn ? "block" : "none";
+    document.getElementById("user-info").innerText = isLoggedIn 
+      ? `Conectado como: ${currentAccount.name} (${currentAccount.username})` 
+      : "Não autenticado";
+  }
+
+  // =========================================================================
+  // 3. CHAMADAS À GRAPH API (CRUD PLANNER)
+  // =========================================================================
+  async function graphFetch(endpoint, method = "GET", body = null, etag = null) {
+    const token = await getAccessToken();
+    const headers = {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json"
+    };
+    if (etag) headers["If-Match"] = etag;
+
+    const options = { method, headers };
+    if (body) options.body = JSON.stringify(body);
+
+    const response = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, options);
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Erro Graph (${response.status}): ${errText}`);
+    }
+    return response.status === 204 ? null : response.json();
+  }
+
+  // Carrega Tarefas e Resolve os Nomes dos Planos
+  async function loadAllData() {
+    const grid = document.getElementById("tasks-grid");
+    grid.innerHTML = "<p>Carregando tarefas do Planner...</p>";
+
+    try {
+      // 1. Busca todas as tarefas atribuídas ao usuário logado
+      const data = await graphFetch("/me/planner/tasks");
+      allTasks = data.value || [];
+
+      // 2. Identifica os PlanIds únicos para buscar os nomes dos planos
+      const uniquePlanIds = [...new Set(allTasks.map(t => t.planId))];
+      await Promise.all(uniquePlanIds.map(async (planId) => {
+        if (!plansMap[planId]) {
+          try {
+            const plan = await graphFetch(`/planner/plans/${planId}`);
+            plansMap[planId] = plan.title;
+          } catch {
+            plansMap[planId] = "Plano sem acesso ao título";
+          }
+        }
+      }));
+
+      populatePlansDropdown();
+      renderTasks();
+    } catch (error) {
+      console.error(error);
+      grid.innerHTML = `<p style="color:var(--danger)">Erro ao carregar dados: ${error.message}</p>`;
+    }
+  }
+
+  function populatePlansDropdown() {
+    const select = document.getElementById("select-plan-create");
+    select.innerHTML = '<option value="">-- Selecione o Plano --</option>';
+    Object.entries(plansMap).forEach(([id, title]) => {
+      const opt = document.createElement("option");
+      opt.value = id;
+      opt.innerText = title;
+      select.appendChild(opt);
+    });
+  }
+
+  // Criar Nova Tarefa
+  async function createTask() {
+    const planId = document.getElementById("select-plan-create").value;
+    const title = document.getElementById("new-task-title").value.trim();
+    const dueDate = document.getElementById("new-task-due").value;
+
+    if (!planId || !title) {
+      alert("Selecione um Plano e informe o título da tarefa.");
+      return;
+    }
+
+    try {
+      // Busca o primeiro bucket do plano selecionado para alocar a tarefa
+      const bucketsData = await graphFetch(`/planner/plans/${planId}/buckets`);
+      const firstBucketId = bucketsData.value?.[0]?.id;
+
+      // Pega o ID do usuário logado para já atribuir a tarefa a você
+      const me = await graphFetch("/me");
+
+      const payload = {
+        planId: planId,
+        title: title,
+        assignments: {
+          [me.id]: { "@odata.type": "#microsoft.graph.plannerAssignment", orderHint: " !" }
+        }
+      };
+
+      if (firstBucketId) payload.bucketId = firstBucketId;
+      if (dueDate) payload.dueDateTime = `${dueDate}T18:00:00Z`;
+
+      await graphFetch("/planner/tasks", "POST", payload);
+      
+      document.getElementById("new-task-title").value = "";
+      document.getElementById("new-task-due").value = "";
+      loadAllData();
+    } catch (error) {
+      alert("Erro ao criar tarefa: " + error.message);
+    }
+  }
+
+  // Atualização Rápida (Em andamento ou Encerrar 100%)
+  async function quickUpdateStatus(taskId, etag, newPercent) {
+    try {
+      await graphFetch(`/planner/tasks/${taskId}`, "PATCH", {
+        percentComplete: newPercent
+      }, etag);
+      loadAllData();
+    } catch (error) {
+      alert("Erro ao atualizar status (o card pode ter sido alterado por outra pessoa). Atualizando lista...");
+      loadAllData();
+    }
+  }
+
+  // Abrir Modal de Edição
+  function openEditModal(taskId) {
+    const task = allTasks.find(t => t.id === taskId);
+    if (!task) return;
+
+    document.getElementById("edit-task-id").value = task.id;
+    document.getElementById("edit-task-etag").value = task["@odata.etag"];
+    document.getElementById("edit-title").value = task.title;
+    document.getElementById("edit-progress").value = task.percentComplete;
+    document.getElementById("edit-due").value = task.dueDateTime ? task.dueDateTime.split("T")[0] : "";
+
+    document.getElementById("edit-modal").showModal();
+  }
+
+  // Salvar Edição Completa
+  async function saveTaskEdit() {
+    const id = document.getElementById("edit-task-id").value;
+    const etag = document.getElementById("edit-task-etag").value;
+    const title = document.getElementById("edit-title").value.trim();
+    const percentComplete = parseInt(document.getElementById("edit-progress").value, 10);
+    const dueDate = document.getElementById("edit-due").value;
+
+    const payload = {
+      title: title,
+      percentComplete: percentComplete,
+      dueDateTime: dueDate ? `${dueDate}T18:00:00Z` : null
+    };
+
+    try {
+      await graphFetch(`/planner/tasks/${id}`, "PATCH", payload, etag);
+      document.getElementById("edit-modal").close();
+      loadAllData();
+    } catch (error) {
+      alert("Erro ao salvar edição: " + error.message);
+    }
+  }
+
+  // =========================================================================
+  // 4. RENDERIZAÇÃO NA TELA
+  // =========================================================================
+  function renderTasks() {
+    const grid = document.getElementById("tasks-grid");
+    const filter = document.getElementById("filter-status").value;
+
+    const filtered = allTasks.filter(t => {
+      if (filter === "open") return t.percentComplete < 100;
+      if (filter === "completed") return t.percentComplete === 100;
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      grid.innerHTML = "<p style='color:var(--text-muted)'>Nenhuma tarefa encontrada neste filtro.</p>";
+      return;
+    }
+
+    grid.innerHTML = filtered.map(task => {
+      const isDone = task.percentComplete === 100;
+      const isProgress = task.percentComplete > 0 && task.percentComplete < 100;
+      
+      let statusLabel = "Não iniciada";
+      let badgeClass = "pending";
+      let cardClass = "";
+
+      if (isDone) {
+        statusLabel = "Concluída";
+        badgeClass = "";
+        cardClass = "completed";
+      } else if (isProgress) {
+        statusLabel = "Em andamento";
+        badgeClass = "progress";
+        cardClass = "in-progress";
+      }
+
+      const dueFormatted = task.dueDateTime 
+        ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) 
+        : "Sem prazo";
+
+      // Escapa aspas do ETag para passar no onclick HTML com segurança
+      const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
+
+      return `
+        <div class="card ${cardClass}">
+          <div>
+            <div class="card-header">
+              <p class="task-title">${task.title}</p>
+              <span class="badge ${badgeClass}">${statusLabel}</span>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+              <span>📁 <strong>Plano:</strong> ${plansMap[task.planId] || "..."}</span>
+              <span>📅 <strong>Prazo:</strong> ${dueFormatted}</span>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar</button>
+            ${!isProgress && !isDone ? `<button class="secondary" onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 50)">▶ Iniciar</button>` : ''}
+            ${!isDone ? `<button onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 100)">✔ Encerrar</button>` : ''}
+          </div>
+        </div>
+      `;
+    }).join("");
+  }
+</script>
+</body>
+</html>
