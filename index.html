@@ -102,8 +102,8 @@
       background: #f8faf9; color: var(--text-main); border: 1px solid var(--border);
       padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;
     }
-    input[type="text"]:focus, select:focus { border-color: var(--cmaa-green-dark); }
-    input[type="text"] { flex: 1; min-width: 220px; }
+    input[type="text"]:focus, select:focus, input[type="date"]:focus { border-color: var(--cmaa-green-dark); }
+    input[type="text"] { flex: 1; min-width: 200px; }
 
     /* Botões */
     button {
@@ -168,18 +168,15 @@
     }
     .chart-title { font-size: 1rem; font-weight: 600; color: var(--cmaa-charcoal); margin: 0; }
     .bar-row { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; }
-    .bar-label { width: 180px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .bar-track { flex: 1; background: #eef2ef; border-radius: 4px; height: 16px; overflow: hidden; }
-    .bar-fill { background: var(--cmaa-green-dark); height: 100%; border-radius: 4px; transition: width 0.4s ease; }
-    .bar-value { width: 80px; text-align: right; font-weight: 600; color: var(--cmaa-charcoal); }
+    .bar-label { width: 140px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { flex: 1; background: #eef2ef; border-radius: 4px; height: 16px; overflow: hidden; display: flex; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+    .bar-value { width: 90px; text-align: right; font-weight: 600; color: var(--cmaa-charcoal); }
 
-    /* Tabela de SLA Detalhado */
-    .table-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; box-shadow: var(--shadow); overflow-x: auto; }
-    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
-    th, td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-main); }
-    th { background: #f8faf9; font-weight: 600; color: var(--cmaa-charcoal); }
-    .status-ok { color: var(--success); font-weight: 600; }
-    .status-late { color: var(--danger); font-weight: 600; }
+    /* Legenda de Comparação Mensal */
+    .legend-container { display: flex; gap: 20px; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-color { width: 14px; height: 14px; border-radius: 3px; }
 
     /* Modal */
     dialog {
@@ -266,15 +263,21 @@
 
         <!-- VISÃO 2: INDICADORES -->
         <div id="view-indicators" class="view-container">
-          <!-- Filtro exclusivo para Indicadores -->
+          <!-- Filtros de Período e Status -->
           <div class="controls">
-            <span style="font-weight: 600; font-size: 0.9rem;">Filtro de Indicadores:</span>
+            <span style="font-weight: 600; font-size: 0.9rem;">Período (Início):</span>
+            <input type="date" id="kpi-date-start" onchange="renderIndicators()">
+            
+            <span style="font-weight: 600; font-size: 0.9rem;">Até:</span>
+            <input type="date" id="kpi-date-end" onchange="renderIndicators()">
+
             <select id="kpi-filter-status" onchange="renderIndicators()">
               <option value="all">Todos os Status</option>
               <option value="completed">Apenas Concluídas</option>
               <option value="open">Apenas Pendentes / Em Andamento</option>
             </select>
-            <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar Dados</button>
+
+            <button class="secondary" onclick="resetKpiFilters()">Limpar Filtros</button>
           </div>
 
           <!-- Cards de KPI -->
@@ -301,33 +304,20 @@
             </div>
           </div>
 
-          <!-- SLA Médio por Mês (Baseado na Conclusão) -->
+          <!-- Gráfico Horizontal: Chamados Abertos vs Concluídos por Mês -->
           <div class="chart-container">
-            <h3 class="chart-title">📅 SLA Médio por Mês (Data de Conclusão)</h3>
-            <div id="monthly-sla-bars" style="display: flex; flex-direction: column; gap: 12px;">
-              <span style="color: var(--text-muted); font-size: 0.85rem;">Calculando SLA mensal...</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+              <h3 class="chart-title" style="margin: 0;">📅 Chamados Abertos x Concluídos por Mês</h3>
+              <div class="legend-container">
+                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-green-dark);"></div> Abertos</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-lime);"></div> Concluídos</div>
+              </div>
+            </div>
+            <div id="monthly-comparison-bars" style="display: flex; flex-direction: column; gap: 14px;">
+              <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando comparativo mensal...</span>
             </div>
           </div>
 
-          <!-- Tabela de SLA Detalhado por Atividade -->
-          <div class="table-container">
-            <h3 class="chart-title" style="margin-bottom: 12px;">📋 Detalhamento de SLA por Chamado</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Atividade</th>
-                  <th>Bucket</th>
-                  <th>Criação (Início)</th>
-                  <th>Conclusão / Prazo</th>
-                  <th>Tempo Gasto (Dias)</th>
-                  <th>Status de Prazo</th>
-                </tr>
-              </thead>
-              <tbody id="sla-table-body">
-                <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Carregando dados...</td></tr>
-              </tbody>
-            </table>
-          </div>
         </div>
 
       </div>
@@ -612,13 +602,36 @@
     gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
   }
 
-  // Renderizar o Dashboard de Indicadores com Filtro de Status
+  function resetKpiFilters() {
+    document.getElementById("kpi-date-start").value = "";
+    document.getElementById("kpi-date-end").value = "";
+    document.getElementById("kpi-filter-status").value = "all";
+    renderIndicators();
+  }
+
+  // Renderizar o Dashboard de Indicadores com Filtros de Data e Status
   async function renderIndicators() {
     const kpiStatus = document.getElementById("kpi-filter-status").value;
+    const dateStartVal = document.getElementById("kpi-date-start").value;
+    const dateEndVal = document.getElementById("kpi-date-end").value;
+
+    const startDate = dateStartVal ? new Date(dateStartVal + "T00:00:00") : null;
+    const endDate = dateEndVal ? new Date(dateEndVal + "T23:59:59") : null;
 
     let filteredTasks = allTasks.filter(t => {
+      // 1. Filtro de Status
       if (kpiStatus === "completed" && t.percentComplete !== 100) return false;
       if (kpiStatus === "open" && t.percentComplete === 100) return false;
+
+      // 2. Filtro de Data (Baseado na criação)
+      if (t.createdDateTime) {
+        const created = new Date(t.createdDateTime);
+        if (startDate && created < startDate) return false;
+        if (endDate && created > endDate) return false;
+      } else if (startDate || endDate) {
+        return false;
+      }
+
       return true;
     });
 
@@ -626,13 +639,12 @@
     const done = filteredTasks.filter(t => t.percentComplete === 100).length;
     const rate = total > 0 ? Math.round((done / total) * 100) : 0;
 
-    // Cálculo do SLA Médio Geral (Diferença entre criação e conclusão / prazo)
+    // Cálculo do SLA Médio Geral
     let totalDays = 0;
     let countedTasks = 0;
     filteredTasks.forEach(t => {
       if (t.createdDateTime) {
         const start = new Date(t.createdDateTime);
-        // Se concluída ou com prazo, usa a data correspondente
         const end = t.completedDateTime ? new Date(t.completedDateTime) : (t.dueDateTime ? new Date(t.dueDateTime) : new Date());
         const diffTime = Math.abs(end - start);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -666,7 +678,7 @@
         <div class="bar-row">
           <span class="bar-label" title="${bName}">${bName}</span>
           <div class="bar-track">
-            <div class="bar-fill" style="width: ${barPct}%;"></div>
+            <div class="bar-fill" style="width: ${barPct}%; background: var(--cmaa-green-dark);"></div>
           </div>
           <span class="bar-value">${count} (${pct}%)</span>
         </div>
@@ -674,95 +686,65 @@
     });
     chartContainer.innerHTML = barsHtml || "<span style='color: var(--text-muted);'>Nenhum dado disponível.</span>";
 
-    // 2. SLA Médio por Mês (Data de Conclusão)
-    let monthlySla = {};
-    filteredTasks.forEach(t => {
-      if (t.createdDateTime && t.completedDateTime) {
-        const compDate = new Date(t.completedDateTime);
-        const monthKey = `${String(compDate.getMonth() + 1).padStart(2, '0')}/${compDate.getFullYear()}`;
-        
-        const start = new Date(t.createdDateTime);
-        const diffDays = Math.ceil(Math.abs(compDate - start) / (1000 * 60 * 60 * 24));
+    // 2. Gráfico Horizontal: Chamados Abertos vs Concluídos por Mês
+    let monthlyData = {}; // { "MM/YYYY": { abertos: 0, concluidos: 0 } }
 
-        if (!monthlySla[monthKey]) monthlySla[monthKey] = { sum: 0, count: 0 };
-        monthlySla[monthKey].sum += diffDays;
-        monthlySla[monthKey].count++;
+    filteredTasks.forEach(t => {
+      if (t.createdDateTime) {
+        const cDate = new Date(t.createdDateTime);
+        const monthKey = `${String(cDate.getMonth() + 1).padStart(2, '0')}/${cDate.getFullYear()}`;
+        if (!monthlyData[monthKey]) monthlyData[monthKey] = { abertos: 0, concluidos: 0 };
+        
+        if (t.percentComplete === 100) {
+          monthlyData[monthKey].concluidos++;
+        } else {
+          monthlyData[monthKey].abertos++;
+        }
       }
     });
 
-    const monthlyContainer = document.getElementById("monthly-sla-bars");
+    const monthlyContainer = document.getElementById("monthly-comparison-bars");
     let monthlyHtml = "";
-    const sortedMonths = Object.keys(monthlySla).sort();
+    const sortedMonths = Object.keys(monthlyData).sort();
 
     if (sortedMonths.length === 0) {
-      monthlyHtml = "<span style='color: var(--text-muted); font-size: 0.85rem;'>Nenhum chamado concluído com data registrada para cálculo mensal.</span>";
+      monthlyHtml = "<span style='color: var(--text-muted); font-size: 0.85rem;'>Nenhum dado para exibir no período selecionado.</span>";
     } else {
-      let maxMonthlyAvg = 1;
+      let maxMonthVal = 1;
       sortedMonths.forEach(m => {
-        const avg = monthlySla[m].sum / monthlySla[m].count;
-        if (avg > maxMonthlyAvg) maxMonthlyAvg = avg;
+        const d = monthlyData[m];
+        if (d.abertos > maxMonthVal) maxMonthVal = d.abertos;
+        if (d.concluidos > maxMonthVal) maxMonthVal = d.concluidos;
       });
 
       sortedMonths.forEach(m => {
-        const data = monthlySla[m];
-        const avgDays = (data.sum / data.count).toFixed(1);
-        const barPct = Math.round((avgDays / maxMonthlyAvg) * 100);
+        const d = monthlyData[m];
+        const pctAbertos = Math.round((d.abertos / maxMonthVal) * 100);
+        const pctConcluidos = Math.round((d.concluidos / maxMonthVal) * 100);
+
         monthlyHtml += `
-          <div class="bar-row">
-            <span class="bar-label">Mês: ${m}</span>
-            <div class="bar-track">
-              <div class="bar-fill" style="width: ${barPct}%; background: var(--cmaa-green-mid);"></div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <span style="font-weight: 600; font-size: 0.85rem; color: var(--cmaa-charcoal);">${m}</span>
+            <div class="bar-row">
+              <span class="bar-label" style="font-size:0.8rem;">Abertos: ${d.abertos}</span>
+              <div class="bar-track">
+                <div class="bar-fill" style="width: ${pctAbertos}%; background: var(--cmaa-green-dark);"></div>
+              </div>
+              <span class="bar-value">${d.abertos}</span>
             </div>
-            <span class="bar-value">${avgDays} dias</span>
+            <div class="bar-row">
+              <span class="bar-label" style="font-size:0.8rem;">Concluídos: ${d.concluidos}</span>
+              <div class="bar-track">
+                <div class="bar-fill" style="width: ${pctConcluidos}%; background: var(--cmaa-lime);"></div>
+              </div>
+              <span class="bar-value">${d.concluidos}</span>
+            </div>
           </div>
+          <hr style="border: none; border-top: 1px solid var(--border); margin: 4px 0;">
         `;
       });
     }
     monthlyContainer.innerHTML = monthlyHtml;
-
-    // 3. Tabela Detalhada de SLA por Atividade
-    const tableBody = document.getElementById("sla-table-body");
-    let tableHtml = "";
-
-    for (const t of filteredTasks) {
-      const bName = bucketsMap[t.bucketId] || "Geral";
-      const created = t.createdDateTime ? new Date(t.createdDateTime).toLocaleDateString("pt-BR") : "-";
-      const due = t.dueDateTime ? new Date(t.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : (t.completedDateTime ? new Date(t.completedDateTime).toLocaleDateString("pt-BR") : "Pendente");
-      
-      let daysSpent = "-";
-      let statusSla = "-";
-
-      if (t.createdDateTime) {
-        const start = new Date(t.createdDateTime);
-        const end = t.completedDateTime ? new Date(t.completedDateTime) : new Date();
-        const diffDays = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
-        daysSpent = diffDays + " dias";
-
-        if (t.dueDateTime) {
-          const dueDate = new Date(t.dueDateTime);
-          if (end <= dueDate) {
-            statusSla = `<span class="status-ok">No Prazo</span>`;
-          } else {
-            statusSla = `<span class="status-late">Atrasado</span>`;
-          }
-        } else {
-          statusSla = `<span style="color: var(--text-muted)">Sem Prazo Fixo</span>`;
-        }
-      }
-
-      tableHtml += `
-        <tr>
-          <td><strong>${t.title}</strong></td>
-          <td>${bName}</td>
-          <td>${created}</td>
-          <td>${due}</td>
-          <td>${daysSpent}</td>
-          <td>${statusSla}</td>
-        </tr>
-      `;
-    }
-
-    tableBody.innerHTML = tableHtml || `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">Nenhum registro encontrado.</td></tr>`;
   }
 
   async function quickUpdateStatus(taskId, etag, newPercent) {
