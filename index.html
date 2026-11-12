@@ -8,7 +8,7 @@
   <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
   <style>
     :root {
-      /* Paleta Extraída da Identidade CMAA + Fundo Claro */
+      /* Paleta da Identidade CMAA + Fundo Claro */
       --bg-main: #f4f6f5;
       --bg-card: #ffffff;
       --bg-sidebar: #ffffff;
@@ -46,8 +46,7 @@
       display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 420px; width: 100%;
     }
     .login-logo {
-      max-width: 220px; height: auto; border-radius: 8px;
-      background: #141414; padding: 12px 18px; /* Garante leitura caso a logo tenha letras escuras ou fundo preto */
+      max-width: 200px; height: auto;
     }
     #login-screen h1 { font-size: 1.5rem; margin: 4px 0 0 0; color: var(--cmaa-charcoal); }
     #login-screen p { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 8px 0; line-height: 1.5; }
@@ -65,8 +64,7 @@
       border-bottom: 1px solid var(--border); gap: 10px;
     }
     .sidebar-logo {
-      max-width: 160px; height: auto; border-radius: 6px;
-      background: #141414; padding: 8px 14px;
+      max-width: 150px; height: auto;
     }
     aside h2 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; margin: 0; color: var(--text-muted); }
     
@@ -172,7 +170,7 @@
     <div class="login-card">
       <img src="CMAA.png" alt="Logo CMAA" class="login-logo">
       <h1>Gestão de Atividades</h1>
-      <p>Acesse com sua conta corporativa Microsoft para gerenciar as tarefas das equipes do Planner.</p>
+      <p>Acesse com sua conta corporativa Microsoft para gerenciar as tarefas do Chamados G&G.</p>
       <button onclick="signIn()" style="width: 100%; padding: 12px 24px; font-size: 1rem;">Entrar com Microsoft</button>
     </div>
   </div>
@@ -180,7 +178,7 @@
   <!-- TELA 2: GESTÃO -->
   <div id="app-screen" style="display: none;">
     
-    <!-- Menu Lateral com Logo e Grupos -->
+    <!-- Menu Lateral com Logo e Equipe Filtrada -->
     <aside>
       <div class="sidebar-brand">
         <img src="CMAA.png" alt="Logo CMAA" class="sidebar-logo">
@@ -195,7 +193,7 @@
     <div class="main-content">
       <header>
         <div>
-          <h2 id="current-plan-title" style="margin:0; font-size: 1.2rem; color: var(--cmaa-charcoal);">Selecione um plano ao lado</h2>
+          <h2 id="current-plan-title" style="margin:0; font-size: 1.2rem; color: var(--cmaa-charcoal);">Chamados G&G</h2>
           <span id="user-info" class="user-info">Carregando usuário...</span>
         </div>
         <button class="secondary" onclick="signOut()">Sair</button>
@@ -296,8 +294,8 @@
 
   let currentAccount = null;
   let allTasks = [];
-  let bucketsMap = {}; // { bucketId: "Nome do Bucket" }
-  let userCache = {};  // { userId: "Nome do Usuário" }
+  let bucketsMap = {}; 
+  let userCache = {};  
   let selectedPlanId = null;
 
   window.addEventListener("DOMContentLoaded", () => {
@@ -357,9 +355,6 @@
     return response.status === 204 ? null : response.json();
   }
 
-  // =========================================================================
-  // CARREGAR PLANOS NA SIDEBAR
-  // =========================================================================
   async function loadUserPlans() {
     const sidebar = document.getElementById("sidebar-plans");
     sidebar.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Buscando equipes...</span>';
@@ -372,6 +367,9 @@
       let firstPlanId = null;
 
       for (const group of groups) {
+        // Filtra estritamente apenas a equipe "Chamados G&G"
+        if (!group.displayName.toLowerCase().includes("chamados g&g")) continue;
+
         try {
           const plansData = await graphFetch(`/groups/${group.id}/planner/plans`);
           if (plansData.value && plansData.value.length > 0) {
@@ -383,7 +381,7 @@
         } catch (e) {}
       }
 
-      sidebar.innerHTML = html || '<span style="color:var(--text-muted)">Nenhum plano encontrado.</span>';
+      sidebar.innerHTML = html || '<span style="color:var(--text-muted)">Nenhum plano encontrado para Chamados G&G.</span>';
 
       if (firstPlanId) {
         const firstBtn = document.getElementById(`plan-btn-${firstPlanId}`);
@@ -404,14 +402,10 @@
     loadTasksForSelectedPlan();
   }
 
-  // =========================================================================
-  // CARREGAR TAREFAS E BUCKETS DO PLANO
-  // =========================================================================
   async function loadTasksForSelectedPlan() {
     if (!selectedPlanId) return;
 
     try {
-      // Carrega Buckets para o filtro
       const bucketsData = await graphFetch(`/planner/plans/${selectedPlanId}/buckets`);
       bucketsMap = {};
       let bucketSelectHtml = '<option value="">Todos os Buckets (Colunas)</option>';
@@ -421,7 +415,6 @@
       });
       document.getElementById("filter-bucket").innerHTML = bucketSelectHtml;
 
-      // Carrega Tarefas e ordena pela data de criação (mais recentes primeiro)
       const tasksData = await graphFetch(`/planner/plans/${selectedPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
       renderTasks();
@@ -447,9 +440,6 @@
     return names.join(", ");
   }
 
-  // =========================================================================
-  // RENDERIZAÇÃO E CLASSIFICAÇÃO POR DATA DE CRIAÇÃO
-  // =========================================================================
   async function renderTasks() {
     const searchText = document.getElementById("filter-search").value.toLowerCase();
     const selectedBucket = document.getElementById("filter-bucket").value;
@@ -461,7 +451,6 @@
 
     gridWeek.innerHTML = gridMonth.innerHTML = gridOthers.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>Carregando...</p>";
 
-    // 1. Filtragem básica (Status e Bucket)
     let filtered = allTasks.filter(t => {
       if (statusFilter === "open" && t.percentComplete === 100) return false;
       if (statusFilter === "completed" && t.percentComplete !== 100) return false;
@@ -469,7 +458,6 @@
       return true;
     });
 
-    // Definição do início e fim da semana atual (Domingo a Sábado)
     const now = new Date();
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0);
     const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (6 - now.getDay()), 23, 59, 59);
@@ -480,7 +468,6 @@
     for (const task of filtered) {
       const assigneeName = await getAssigneeNames(task.assignments);
 
-      // 2. Filtro de Texto (Busca por título da atividade ou responsável)
       if (searchText && !task.title.toLowerCase().includes(searchText) && !assigneeName.toLowerCase().includes(searchText)) {
         continue;
       }
@@ -528,7 +515,6 @@
         </div>
       `;
 
-      // 3. Classificação Temporal pela Data de Criação (createdDateTime)
       if (!task.createdDateTime) {
         othersHtml += cardHtml; othersCount++;
       } else {
@@ -552,9 +538,6 @@
     gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
   }
 
-  // =========================================================================
-  // AÇÕES (EDITAR / CONCLUIR)
-  // =========================================================================
   async function quickUpdateStatus(taskId, etag, newPercent) {
     try {
       await graphFetch(`/planner/tasks/${taskId}`, "PATCH", { percentComplete: newPercent }, etag);
