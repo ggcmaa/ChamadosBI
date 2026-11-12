@@ -43,6 +43,7 @@
     .controls {
       display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
       background: var(--bg-card); padding: 16px; border-radius: 8px; border: 1px solid var(--border);
+      align-items: center;
     }
 
     select, input[type="text"], input[type="date"] {
@@ -75,7 +76,6 @@
     .actions { display: flex; gap: 8px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
     .actions button { flex: 1; font-size: 0.8rem; padding: 6px 10px; }
 
-    /* Modal simples para edição */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
       border-radius: 8px; padding: 20px; width: 90%; max-width: 450px;
@@ -100,22 +100,22 @@
   </header>
 
   <main id="app-content" style="display:none;">
-    <!-- Barra de Criação e Filtro -->
+    <!-- Controles de Seleção e Filtro -->
     <div class="controls">
-      <select id="filter-status" onchange="renderTasks()">
-        <option value="open">Pendentes e Em Andamento</option>
-        <option value="all">Todas as Tarefas</option>
-        <option value="completed">Concluídas (100%)</option>
+      <select id="select-plan" onchange="onPlanChange()" title="Selecione o Plano da Equipe">
+        <option value="">Carregando planos da equipe...</option>
       </select>
 
-      <select id="select-plan-create" title="Selecione o Plano para nova tarefa">
-        <option value="">Carregando planos...</option>
+      <select id="filter-status" onchange="renderTasks()">
+        <option value="open">Pendentes e Em Andamento</option>
+        <option value="all">Todas as Tarefas do Plano</option>
+        <option value="completed">Concluídas (100%)</option>
       </select>
 
       <input type="text" id="new-task-title" placeholder="Título da nova atividade...">
       <input type="date" id="new-task-due" title="Prazo de entrega">
       <button onclick="createTask()">+ Nova Tarefa</button>
-      <button class="secondary" onclick="loadAllData()">↻ Atualizar</button>
+      <button class="secondary" onclick="loadTasksForSelectedPlan()">↻ Atualizar</button>
     </div>
 
     <!-- Lista de Tarefas -->
@@ -156,13 +156,13 @@
 
 <script>
   // =========================================================================
-  // 1. CONFIGURAÇÃO DO ENTRA ID (AJUSTE DE URL DINÂMICO APLICADO)
+  // 1. CONFIGURAÇÃO DO ENTRA ID
   // =========================================================================
   const msalConfig = {
     auth: {
-      clientId: "92b0526e-e8f0-4cca-a711-b557e5c15fbc", // Insira seu Client ID do Azure
-      authority: "https://login.microsoftonline.com/ca4b9034-c4ac-4ca2-b97e-1e57700b0d20", // Insira seu Tenant ID
-      redirectUri: window.location.origin + "/" // Ajuste dinâmico: captura exatamente a raiz (ex: https://ggcmaa.github.io/)
+      clientId: "92b0526e-e8f0-4cca-a711-b557e5c15fbc",
+      authority: "https://login.microsoftonline.com/ca4b9034-c4ac-4ca2-b97e-1e57700b0d20",
+      redirectUri: window.location.origin + "/" 
     },
     cache: {
       cacheLocation: "sessionStorage",
@@ -170,32 +170,29 @@
     }
   };
 
-  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All"];
+  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All"];
   const msalInstance = new msal.PublicClientApplication(msalConfig);
 
   let currentAccount = null;
   let allTasks = [];
-  let plansMap = {}; // Cache de nomes de planos: { planId: "Nome do Plano" }
+  let currentPlanTitle = "";
+  let userCache = {}; // Cache para nomes de usuários
 
-  // Verifica se já existe sessão ativa ao carregar a página
   window.addEventListener("DOMContentLoaded", () => {
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
       currentAccount = accounts[0];
       updateUIState(true);
-      loadAllData();
+      loadUserPlans();
     }
   });
 
-  // =========================================================================
-  // 2. AUTENTICAÇÃO (LOGIN / LOGOUT / TOKEN)
-  // =========================================================================
   async function signIn() {
     try {
       const loginResponse = await msalInstance.loginPopup({ scopes: graphScopes });
       currentAccount = loginResponse.account;
       updateUIState(true);
-      loadAllData();
+      loadUserPlans();
     } catch (error) {
       console.error("Erro no login:", error);
       alert("Falha na autenticação. Verifique o console ou as configurações do Azure.");
@@ -226,9 +223,6 @@
       : "Não autenticado";
   }
 
-  // =========================================================================
-  // 3. CHAMADAS À GRAPH API (CRUD PLANNER)
-  // =========================================================================
   async function graphFetch(endpoint, method = "GET", body = null, etag = null) {
     const token = await getAccessToken();
     const headers = {
@@ -248,51 +242,103 @@
     return response.status === 204 ? null : response.json();
   }
 
-  // Carrega Tarefas e Resolve os Nomes dos Planos
-  async function loadAllData() {
-    const grid = document.getElementById("tasks-grid");
-    grid.innerHTML = "<p>Carregando tarefas do Planner...</p>";
+  // =========================================================================
+  // 2. BUSCA DE PLANOS E EQUIPES (GROUPS / PLANS)
+  // =========================================================================
+  async function loadUserPlans() {
+    const selectPlan = document.getElementById("select-plan");
+    selectPlan.innerHTML = '<option value="">Buscando equipes e planos...</option>';
 
     try {
-      // 1. Busca todas as tarefas atribuídas ao usuário logado
-      const data = await graphFetch("/me/planner/tasks");
-      allTasks = data.value || [];
+      // 1. Busca os grupos/equipes que o usuário participa no Teams
+      const groupsData = await graphFetch("/me/memberOf?$select=id,displayName");
+      const groups = groupsData.value.filter(g => g["@odata.type"] === "#microsoft.graph.group");
 
-      // 2. Identifica os PlanIds únicos para buscar os nomes dos planos
-      const uniquePlanIds = [...new Set(allTasks.map(t => t.planId))];
-      await Promise.all(uniquePlanIds.map(async (planId) => {
-        if (!plansMap[planId]) {
-          try {
-            const plan = await graphFetch(`/planner/plans/${planId}`);
-            plansMap[planId] = plan.title;
-          } catch {
-            plansMap[planId] = "Plano sem acesso ao título";
+      let optionsHtml = '<option value="">-- Selecione um Plano da Equipe --</option>';
+
+      // 2. Para cada grupo, busca os planos do Planner associados
+      for (const group of groups) {
+        try {
+          const plansData = await graphFetch(`/groups/${group.id}/planner/plans`);
+          if (plansData.value && plansData.value.length > 0) {
+            for (const plan of plansData.value) {
+              optionsHtml += `<option value="${plan.id}">${group.displayName} ➔ ${plan.title}</option>`;
+            }
           }
+        } catch (e) {
+          // Grupos que não possuem planos associados retornam erro que pode ser ignorado
         }
-      }));
+      }
 
-      populatePlansDropdown();
-      renderTasks();
+      selectPlan.innerHTML = optionsHtml;
+
+      // Se houver planos, seleciona o primeiro automaticamente e carrega as tarefas
+      if (selectPlan.options.length > 1) {
+        selectPlan.selectedIndex = 1;
+        loadTasksForSelectedPlan();
+      } else {
+        selectPlan.innerHTML = '<option value="">Nenhum plano encontrado nas suas equipes.</option>';
+      }
+
     } catch (error) {
       console.error(error);
-      grid.innerHTML = `<p style="color:var(--danger)">Erro ao carregar dados: ${error.message}</p>`;
+      selectPlan.innerHTML = '<option value="">Erro ao carregar planos das equipes.</option>';
     }
   }
 
-  function populatePlansDropdown() {
-    const select = document.getElementById("select-plan-create");
-    select.innerHTML = '<option value="">-- Selecione o Plano --</option>';
-    Object.entries(plansMap).forEach(([id, title]) => {
-      const opt = document.createElement("option");
-      opt.value = id;
-      opt.innerText = title;
-      select.appendChild(opt);
-    });
+  function onPlanChange() {
+    loadTasksForSelectedPlan();
   }
 
-  // Criar Nova Tarefa
+  // =========================================================================
+  // 3. CARREGAR TODAS AS TAREFAS DO PLANO SELECIONADO
+  // =========================================================================
+  async function loadTasksForSelectedPlan() {
+    const planId = document.getElementById("select-plan").value;
+    const grid = document.getElementById("tasks-grid");
+
+    if (!planId) {
+      grid.innerHTML = "<p style='color:var(--text-muted)'>Selecione um plano acima para ver as atividades.</p>";
+      return;
+    }
+
+    grid.innerHTML = "<p>Carregando todas as tarefas do plano...</p>";
+
+    try {
+      // Busca TODAS as tarefas do plano (independente de quem é o responsável)
+      const data = await graphFetch(`/planner/plans/${planId}/tasks`);
+      allTasks = data.value || [];
+      renderTasks();
+    } catch (error) {
+      console.error(error);
+      grid.innerHTML = `<p style="color:var(--danger)">Erro ao carregar tarefas: ${error.message}</p>`;
+    }
+  }
+
+  // Resolver nome do usuário atribuído (com cache para otimizar)
+  async function getAssigneeNames(assignments) {
+    if (!assignments || Object.keys(assignments).length === 0) return "Não atribuída";
+    
+    let names = [];
+    for (const userId of Object.keys(assignments)) {
+      if (!userCache[userId]) {
+        try {
+          const user = await graphFetch(`/users/${userId}?$select=displayName`);
+          userCache[userId] = user.displayName;
+        } catch {
+          userCache[userId] = "Usuário";
+        }
+      }
+      names.push(userCache[userId]);
+    }
+    return names.join(", ");
+  }
+
+  // =========================================================================
+  // 4. CRIAR, EDITAR E ATUALIZAR TAREFAS
+  // =========================================================================
   async function createTask() {
-    const planId = document.getElementById("select-plan-create").value;
+    const planId = document.getElementById("select-plan").value;
     const title = document.getElementById("new-task-title").value.trim();
     const dueDate = document.getElementById("new-task-due").value;
 
@@ -302,19 +348,12 @@
     }
 
     try {
-      // Busca o primeiro bucket do plano selecionado para alocar a tarefa
       const bucketsData = await graphFetch(`/planner/plans/${planId}/buckets`);
       const firstBucketId = bucketsData.value?.[0]?.id;
 
-      // Pega o ID do usuário logado para já atribuir a tarefa a você
-      const me = await graphFetch("/me");
-
       const payload = {
         planId: planId,
-        title: title,
-        assignments: {
-          [me.id]: { "@odata.type": "#microsoft.graph.plannerAssignment", orderHint: " !" }
-        }
+        title: title
       };
 
       if (firstBucketId) payload.bucketId = firstBucketId;
@@ -324,26 +363,24 @@
       
       document.getElementById("new-task-title").value = "";
       document.getElementById("new-task-due").value = "";
-      loadAllData();
+      loadTasksForSelectedPlan();
     } catch (error) {
       alert("Erro ao criar tarefa: " + error.message);
     }
   }
 
-  // Atualização Rápida (Em andamento ou Encerrar 100%)
   async function quickUpdateStatus(taskId, etag, newPercent) {
     try {
       await graphFetch(`/planner/tasks/${taskId}`, "PATCH", {
         percentComplete: newPercent
       }, etag);
-      loadAllData();
+      loadTasksForSelectedPlan();
     } catch (error) {
-      alert("Erro ao atualizar status (o card pode ter sido alterado por outra pessoa). Atualizando lista...");
-      loadAllData();
+      alert("Erro ao atualizar status. Atualizando lista...");
+      loadTasksForSelectedPlan();
     }
   }
 
-  // Abrir Modal de Edição
   function openEditModal(taskId) {
     const task = allTasks.find(t => t.id === taskId);
     if (!task) return;
@@ -357,7 +394,6 @@
     document.getElementById("edit-modal").showModal();
   }
 
-  // Salvar Edição Completa
   async function saveTaskEdit() {
     const id = document.getElementById("edit-task-id").value;
     const etag = document.getElementById("edit-task-etag").value;
@@ -374,16 +410,16 @@
     try {
       await graphFetch(`/planner/tasks/${id}`, "PATCH", payload, etag);
       document.getElementById("edit-modal").close();
-      loadAllData();
+      loadTasksForSelectedPlan();
     } catch (error) {
       alert("Erro ao salvar edição: " + error.message);
     }
   }
 
   // =========================================================================
-  // 4. RENDERIZAÇÃO NA TELA
+  // 5. RENDERIZAÇÃO NA TELA
   // =========================================================================
-  function renderTasks() {
+  async function renderTasks() {
     const grid = document.getElementById("tasks-grid");
     const filter = document.getElementById("filter-status").value;
 
@@ -394,11 +430,14 @@
     });
 
     if (filtered.length === 0) {
-      grid.innerHTML = "<p style='color:var(--text-muted)'>Nenhuma tarefa encontrada neste filtro.</p>";
+      grid.innerHTML = "<p style='color:var(--text-muted)'>Nenhuma tarefa encontrada neste plano com o filtro atual.</p>";
       return;
     }
 
-    grid.innerHTML = filtered.map(task => {
+    grid.innerHTML = "<p>Carregando detalhes e responsáveis...</p>";
+
+    let cardsHtml = "";
+    for (const task of filtered) {
       const isDone = task.percentComplete === 100;
       const isProgress = task.percentComplete > 0 && task.percentComplete < 100;
       
@@ -420,9 +459,10 @@
         ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) 
         : "Sem prazo";
 
+      const assigneeName = await getAssigneeNames(task.assignments);
       const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
 
-      return `
+      cardsHtml += `
         <div class="card ${cardClass}">
           <div>
             <div class="card-header">
@@ -430,7 +470,7 @@
               <span class="badge ${badgeClass}">${statusLabel}</span>
             </div>
             <div class="meta" style="margin-top:8px;">
-              <span>📁 <strong>Plano:</strong> ${plansMap[task.planId] || "..."}</span>
+              <span>👤 <strong>Responsável:</strong> ${assigneeName}</span>
               <span>📅 <strong>Prazo:</strong> ${dueFormatted}</span>
             </div>
           </div>
@@ -442,7 +482,9 @@
           </div>
         </div>
       `;
-    }).join("");
+    }
+
+    grid.innerHTML = cardsHtml;
   }
 </script>
 </body>
