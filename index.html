@@ -3,58 +3,93 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gestão de Atividades - Planner</title>
+  <title>Gestão de Atividades — CMAA</title>
   <!-- Biblioteca Oficial MSAL.js 2.x -->
   <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
   <style>
     :root {
-      --bg-main: #f4f6f9;
+      /* Paleta Extraída da Identidade CMAA + Fundo Claro */
+      --bg-main: #f4f6f5;
       --bg-card: #ffffff;
       --bg-sidebar: #ffffff;
-      --border: #d0d7de;
-      --text-main: #24292f;
-      --text-muted: #57606a;
-      --accent: #0969da;
-      --accent-hover: #0351b4;
-      --success: #1f883d;
-      --warning: #9a6700;
-      --shadow: 0 1px 3px rgba(27, 31, 35, 0.08);
+      --border: #d5ddd8;
+      --text-main: #1f2421;
+      --text-muted: #5a655e;
+      
+      /* Cores da Logo CMAA */
+      --cmaa-green-dark: #007934;
+      --cmaa-green-mid: #3a9d38;
+      --cmaa-lime: #8cc63f;
+      --cmaa-charcoal: #2b2b2b;
+      
+      --accent: var(--cmaa-green-dark);
+      --accent-hover: #005e28;
+      --success: #1a7f37;
+      --warning: #b07800;
+      --danger: #cf222e;
+      --shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
     }
 
     * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
     body { background: var(--bg-main); color: var(--text-main); margin: 0; padding: 0; height: 100vh; overflow: hidden; }
 
-    /* --- TELA DE LOGIN --- */
+    /* --- TELA 1: LOGIN --- */
     #login-screen {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      height: 100vh; background: var(--bg-main); gap: 16px; text-align: center; padding: 20px;
+      height: 100vh; background: var(--bg-main); gap: 20px; text-align: center; padding: 20px;
+      border-top: 6px solid;
+      border-image: linear-gradient(90deg, var(--cmaa-lime), var(--cmaa-green-dark)) 1;
     }
-    #login-screen h1 { font-size: 2rem; margin-bottom: 0; color: var(--text-main); }
-    #login-screen p { color: var(--text-muted); font-size: 1rem; max-width: 400px; }
+    .login-card {
+      background: var(--bg-card); padding: 40px 36px; border-radius: 12px;
+      border: 1px solid var(--border); box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      display: flex; flex-direction: column; align-items: center; gap: 16px; max-width: 420px; width: 100%;
+    }
+    .login-logo {
+      max-width: 220px; height: auto; border-radius: 8px;
+      background: #141414; padding: 12px 18px; /* Garante leitura caso a logo tenha letras escuras ou fundo preto */
+    }
+    #login-screen h1 { font-size: 1.5rem; margin: 4px 0 0 0; color: var(--cmaa-charcoal); }
+    #login-screen p { color: var(--text-muted); font-size: 0.95rem; margin: 0 0 8px 0; line-height: 1.5; }
 
-    /* --- LAYOUT PRINCIPAL (APP) --- */
-    #app-screen { display: none; height: 100vh; width: 100vw; display: flex; }
+    /* --- TELA 2: LAYOUT PRINCIPAL (APP) --- */
+    #app-screen { display: none; height: 100vh; width: 100vw; }
     
     /* Menu Lateral */
     aside {
       width: 280px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
       display: flex; flex-direction: column; padding: 20px; gap: 16px; overflow-y: auto; flex-shrink: 0;
     }
-    aside h2 { font-size: 1.1rem; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .sidebar-brand {
+      display: flex; flex-direction: column; align-items: center; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border); gap: 10px;
+    }
+    .sidebar-logo {
+      max-width: 160px; height: auto; border-radius: 6px;
+      background: #141414; padding: 8px 14px;
+    }
+    aside h2 { font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; margin: 0; color: var(--text-muted); }
+    
     .plan-list { display: flex; flex-direction: column; gap: 6px; }
     .plan-item {
       padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text-muted);
       transition: 0.2s; border: 1px solid transparent; text-align: left; background: transparent; width: 100%;
     }
-    .plan-item:hover { background: #f0f3f6; color: var(--text-main); }
-    .plan-item.active { background: #ddf4ff; color: var(--accent); border-color: #b6e3ff; font-weight: 600; }
+    .plan-item:hover { background: #edf3ef; color: var(--text-main); }
+    .plan-item.active {
+      background: rgba(0, 121, 52, 0.1); color: var(--cmaa-green-dark);
+      border-color: rgba(0, 121, 52, 0.3); font-weight: 600;
+      border-left: 4px solid var(--cmaa-green-dark);
+    }
 
     /* Conteúdo Principal */
     .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     
     header {
-      background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 16px 24px;
+      background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 14px 24px;
       display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow);
+      border-top: 4px solid;
+      border-image: linear-gradient(90deg, var(--cmaa-lime), var(--cmaa-green-dark)) 1;
     }
     .user-info { font-size: 0.85rem; color: var(--text-muted); }
 
@@ -66,56 +101,66 @@
       border: 1px solid var(--border); box-shadow: var(--shadow); align-items: center; flex-wrap: wrap;
     }
     input[type="text"], input[type="date"], select {
-      background: #f6f8fa; color: var(--text-main); border: 1px solid var(--border);
+      background: #f8faf9; color: var(--text-main); border: 1px solid var(--border);
       padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;
     }
-    input[type="text"] { flex: 1; min-width: 200px; }
+    input[type="text"]:focus, select:focus { border-color: var(--cmaa-green-dark); }
+    input[type="text"] { flex: 1; min-width: 220px; }
 
     /* Botões */
     button {
-      background: var(--accent); color: #fff; border: none; padding: 8px 16px;
+      background: linear-gradient(135deg, var(--cmaa-green-mid), var(--cmaa-green-dark));
+      color: #fff; border: none; padding: 9px 18px;
       border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 0.9rem;
     }
-    button:hover { background: var(--accent-hover); }
-    button.secondary { background: #f6f8fa; border: 1px solid var(--border); color: var(--text-main); }
-    button.secondary:hover { background: #f3f4f6; border-color: var(--text-muted); }
+    button:hover { background: var(--accent-hover); box-shadow: 0 2px 6px rgba(0, 121, 52, 0.25); }
+    button.secondary { background: #f4f6f5; border: 1px solid var(--border); color: var(--cmaa-charcoal); }
+    button.secondary:hover { background: #e8edea; border-color: var(--text-muted); box-shadow: none; }
 
     /* Seções de Tempo */
     .time-section { display: flex; flex-direction: column; gap: 12px; }
-    .time-section h3 { font-size: 1rem; margin: 0; padding-bottom: 6px; border-bottom: 2px solid var(--border); color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .time-section h3 {
+      font-size: 1rem; margin: 0; padding-bottom: 8px; border-bottom: 2px solid var(--border);
+      color: var(--cmaa-charcoal); display: flex; align-items: center; justify-content: space-between;
+    }
+    .count-pill {
+      font-size: 0.75rem; background: #e6ece8; color: var(--cmaa-charcoal);
+      padding: 2px 10px; border-radius: 12px; font-weight: 600;
+    }
     
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
     
     /* Cards */
     .card {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
       padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px;
       box-shadow: var(--shadow); transition: transform 0.2s;
+      border-left: 4px solid var(--cmaa-charcoal);
     }
     .card:hover { transform: translateY(-2px); }
-    .card.completed { opacity: 0.6; border-left: 4px solid var(--success); }
-    .card.in-progress { border-left: 4px solid var(--warning); }
+    .card.completed { opacity: 0.65; border-left: 4px solid var(--cmaa-green-dark); }
+    .card.in-progress { border-left: 4px solid var(--cmaa-lime); }
 
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .task-title { font-weight: 600; font-size: 0.95rem; margin: 0; line-height: 1.4; color: var(--text-main); }
     
     .badge {
       font-size: 0.7rem; padding: 3px 8px; border-radius: 12px;
-      background: rgba(31, 136, 61, 0.1); color: var(--success); white-space: nowrap; font-weight: 600;
+      background: rgba(0, 121, 52, 0.12); color: var(--cmaa-green-dark); white-space: nowrap; font-weight: 600;
     }
-    .badge.progress { background: rgba(154, 103, 0, 0.1); color: var(--warning); }
-    .badge.pending { background: rgba(87, 96, 106, 0.1); color: var(--text-muted); }
+    .badge.progress { background: rgba(140, 198, 63, 0.25); color: #4b7312; }
+    .badge.pending { background: rgba(43, 43, 43, 0.1); color: var(--cmaa-charcoal); }
 
     .meta { font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
     .actions { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
-    .actions button { flex: 1; font-size: 0.75rem; padding: 6px 8px; }
+    .actions button { flex: 1; font-size: 0.78rem; padding: 6px 8px; }
 
     /* Modal */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
-      border-radius: 8px; padding: 24px; width: 90%; max-width: 450px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      border-radius: 8px; padding: 24px; width: 90%; max-width: 450px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
-    dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
     .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
   </style>
@@ -124,17 +169,23 @@
 
   <!-- TELA 1: LOGIN -->
   <div id="login-screen">
-    <h1>Portal de Gestão — Planner</h1>
-    <p>Acesse com sua conta corporativa para gerenciar as atividades das equipes do Teams.</p>
-    <button onclick="signIn()" style="padding: 12px 28px; font-size: 1rem;">Entrar com Microsoft</button>
+    <div class="login-card">
+      <img src="CMAA.png" alt="Logo CMAA" class="login-logo">
+      <h1>Gestão de Atividades</h1>
+      <p>Acesse com sua conta corporativa Microsoft para gerenciar as tarefas das equipes do Planner.</p>
+      <button onclick="signIn()" style="width: 100%; padding: 12px 24px; font-size: 1rem;">Entrar com Microsoft</button>
+    </div>
   </div>
 
   <!-- TELA 2: GESTÃO -->
   <div id="app-screen" style="display: none;">
     
-    <!-- Menu Lateral com Grupos e Planos -->
+    <!-- Menu Lateral com Logo e Grupos -->
     <aside>
-      <h2>📁 Equipes e Planos</h2>
+      <div class="sidebar-brand">
+        <img src="CMAA.png" alt="Logo CMAA" class="sidebar-logo">
+      </div>
+      <h2>Equipes e Planos</h2>
       <div id="sidebar-plans" class="plan-list">
         <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando equipes...</span>
       </div>
@@ -144,16 +195,16 @@
     <div class="main-content">
       <header>
         <div>
-          <h2 id="current-plan-title" style="margin:0; font-size: 1.2rem;">Selecione um plano ao lado</h2>
+          <h2 id="current-plan-title" style="margin:0; font-size: 1.2rem; color: var(--cmaa-charcoal);">Selecione um plano ao lado</h2>
           <span id="user-info" class="user-info">Carregando usuário...</span>
         </div>
         <button class="secondary" onclick="signOut()">Sair</button>
       </header>
 
       <div class="content-body">
-        <!-- Barra de Filtros e Criação -->
+        <!-- Barra de Filtros -->
         <div class="controls">
-          <input type="text" id="filter-search" placeholder="🔍 Pesquisar por título ou responsável..." oninput="renderTasks()">
+          <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
           
           <select id="filter-bucket" onchange="renderTasks()">
             <option value="">Todos os Buckets (Colunas)</option>
@@ -168,19 +219,28 @@
           <button class="secondary" onclick="loadTasksForSelectedPlan()">↻ Atualizar</button>
         </div>
 
-        <!-- Seções Separadas por Tempo -->
+        <!-- Seções Separadas por Data de Criação -->
         <div class="time-section">
-          <h3>⚡ Esta semana</h3>
+          <h3>
+            <span>⚡ Criadas esta semana</span>
+            <span id="count-week" class="count-pill">0</span>
+          </h3>
           <div id="grid-week" class="grid"></div>
         </div>
 
         <div class="time-section">
-          <h3>📅 Este mês</h3>
+          <h3>
+            <span>📅 Criadas este mês</span>
+            <span id="count-month" class="count-pill">0</span>
+          </h3>
           <div id="grid-month" class="grid"></div>
         </div>
 
         <div class="time-section">
-          <h3>🗂️ Outras</h3>
+          <h3>
+            <span>🗂️ Outras (Anteriores)</span>
+            <span id="count-others" class="count-pill">0</span>
+          </h3>
           <div id="grid-others" class="grid"></div>
         </div>
       </div>
@@ -189,7 +249,7 @@
 
   <!-- Modal de Edição -->
   <dialog id="edit-modal">
-    <h3 style="margin-top:0;">Editar Atividade</h3>
+    <h3 style="margin-top:0; color: var(--cmaa-charcoal);">Editar Atividade</h3>
     <input type="hidden" id="edit-task-id">
     <input type="hidden" id="edit-task-etag">
     
@@ -361,9 +421,9 @@
       });
       document.getElementById("filter-bucket").innerHTML = bucketSelectHtml;
 
-      // Carrega Tarefas
+      // Carrega Tarefas e ordena pela data de criação (mais recentes primeiro)
       const tasksData = await graphFetch(`/planner/plans/${selectedPlanId}/tasks`);
-      allTasks = tasksData.value || [];
+      allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
       renderTasks();
     } catch (error) {
       console.error(error);
@@ -388,7 +448,7 @@
   }
 
   // =========================================================================
-  // RENDERIZAÇÃO E FILTRAGEM (TEMPO E BUSCA)
+  // RENDERIZAÇÃO E CLASSIFICAÇÃO POR DATA DE CRIAÇÃO
   // =========================================================================
   async function renderTasks() {
     const searchText = document.getElementById("filter-search").value.toLowerCase();
@@ -409,11 +469,10 @@
       return true;
     });
 
+    // Definição do início e fim da semana atual (Domingo a Sábado)
     const now = new Date();
-    const startOfWeek = new Date(now);
-    startOfWeek.setDate(now.getDate() - now.getDay()); // Domingo
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6); // Sábado
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0);
+    const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (6 - now.getDay()), 23, 59, 59);
 
     let weekHtml = "", monthHtml = "", othersHtml = "";
     let weekCount = 0, monthCount = 0, othersCount = 0;
@@ -421,7 +480,7 @@
     for (const task of filtered) {
       const assigneeName = await getAssigneeNames(task.assignments);
 
-      // 2. Filtro de Texto (Busca por título ou responsável)
+      // 2. Filtro de Texto (Busca por título da atividade ou responsável)
       if (searchText && !task.title.toLowerCase().includes(searchText) && !assigneeName.toLowerCase().includes(searchText)) {
         continue;
       }
@@ -435,6 +494,10 @@
 
       if (isDone) { statusLabel = "Concluída"; badgeClass = ""; cardClass = "completed"; }
       else if (isProgress) { statusLabel = "Em andamento"; badgeClass = "progress"; cardClass = "in-progress"; }
+
+      const createdFormatted = task.createdDateTime
+        ? new Date(task.createdDateTime).toLocaleDateString("pt-BR")
+        : "N/D";
 
       const dueFormatted = task.dueDateTime 
         ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) 
@@ -451,8 +514,9 @@
               <span class="badge ${badgeClass}">${statusLabel}</span>
             </div>
             <div class="meta" style="margin-top:8px;">
-              <span>📌 <strong>Coluna:</strong> ${bucketName}</span>
+              <span>📌 <strong>Bucket:</strong> ${bucketName}</span>
               <span>👤 <strong>Responsável:</strong> ${assigneeName}</span>
+              <span>🕒 <strong>Criada em:</strong> ${createdFormatted}</span>
               <span>📅 <strong>Prazo:</strong> ${dueFormatted}</span>
             </div>
           </div>
@@ -464,14 +528,14 @@
         </div>
       `;
 
-      // 3. Classificação Temporal por Prazo
-      if (!task.dueDateTime) {
+      // 3. Classificação Temporal pela Data de Criação (createdDateTime)
+      if (!task.createdDateTime) {
         othersHtml += cardHtml; othersCount++;
       } else {
-        const dueDate = new Date(task.dueDateTime);
-        if (dueDate >= startOfWeek && dueDate <= endOfWeek) {
+        const createdDate = new Date(task.createdDateTime);
+        if (createdDate >= startOfWeek && createdDate <= endOfWeek) {
           weekHtml += cardHtml; weekCount++;
-        } else if (dueDate.getMonth() === now.getMonth() && dueDate.getFullYear() === now.getFullYear()) {
+        } else if (createdDate.getMonth() === now.getMonth() && createdDate.getFullYear() === now.getFullYear()) {
           monthHtml += cardHtml; monthCount++;
         } else {
           othersHtml += cardHtml; othersCount++;
@@ -479,9 +543,13 @@
       }
     }
 
-    gridWeek.innerHTML = weekCount > 0 ? weekHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa nesta semana.</p>";
-    gridMonth.innerHTML = monthCount > 0 ? monthHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa neste mês.</p>";
-    gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa em outras datas.</p>";
+    document.getElementById("count-week").innerText = weekCount;
+    document.getElementById("count-month").innerText = monthCount;
+    document.getElementById("count-others").innerText = othersCount;
+
+    gridWeek.innerHTML = weekCount > 0 ? weekHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa criada nesta semana.</p>";
+    gridMonth.innerHTML = monthCount > 0 ? monthHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa criada neste mês.</p>";
+    gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
   }
 
   // =========================================================================
