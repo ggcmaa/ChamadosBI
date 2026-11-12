@@ -118,6 +118,38 @@
     button.danger { background: var(--danger); color: #fff; }
     button.danger:hover { background: #a81a22; box-shadow: 0 2px 6px rgba(207, 34, 46, 0.25); }
 
+    /* Cards de Resumo por Bucket na Tela de Atividades */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border-top: 3px solid var(--cmaa-green-dark);
+    }
+    .summary-card-title {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .summary-card-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--cmaa-charcoal);
+    }
+
     /* Seções de Tempo */
     .time-section { display: flex; flex-direction: column; gap: 12px; }
     .time-section h3 {
@@ -131,7 +163,7 @@
     
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 16px; }
     
-    /* Cards */
+    /* Cards de Tarefas */
     .card {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
       padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px;
@@ -221,6 +253,12 @@
         
         <!-- VISÃO 1: ATIVIDADES -->
         <div id="view-tasks" class="view-container active">
+          
+          <!-- Cards de Resumo e Volume por Bucket -->
+          <div id="summary-cards-container" class="summary-grid">
+            <!-- Preenchido dinamicamente -->
+          </div>
+
           <div class="controls">
             <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
             
@@ -540,6 +578,7 @@
     }
   }
 
+  // Renderizar a Aba de Atividades (com cards de resumo e volume por bucket)
   async function renderTasks() {
     const searchText = document.getElementById("filter-search").value.toLowerCase();
     const selectedBucket = document.getElementById("filter-bucket").value;
@@ -548,6 +587,7 @@
     const gridWeek = document.getElementById("grid-week");
     const gridMonth = document.getElementById("grid-month");
     const gridOthers = document.getElementById("grid-others");
+    const summaryContainer = document.getElementById("summary-cards-container");
 
     gridWeek.innerHTML = gridMonth.innerHTML = gridOthers.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>Carregando...</p>";
 
@@ -558,6 +598,32 @@
       return true;
     });
 
+    // 1. Renderizar Cards de Resumo (Total + Volume por Bucket)
+    let bucketCounts = {};
+    Object.values(bucketsMap).forEach(bName => bucketCounts[bName] = 0);
+    filtered.forEach(t => {
+      const bName = bucketsMap[t.bucketId] || "Geral";
+      bucketCounts[bName] = (bucketCounts[bName] || 0) + 1;
+    });
+
+    let summaryHtml = `
+      <div class="summary-card" style="border-top-color: var(--cmaa-charcoal);">
+        <span class="summary-card-title">Total de Chamados</span>
+        <span class="summary-card-value">${filtered.length}</span>
+      </div>
+    `;
+
+    Object.entries(bucketCounts).forEach(([bName, count]) => {
+      summaryHtml += `
+        <div class="summary-card">
+          <span class="summary-card-title" title="${bName}">${bName}</span>
+          <span class="summary-card-value">${count}</span>
+        </div>
+      `;
+    });
+    summaryContainer.innerHTML = summaryHtml;
+
+    // 2. Classificação Temporal por Data de Criação
     const now = new Date();
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0);
     const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (6 - now.getDay()), 23, 59, 59);
@@ -712,7 +778,6 @@
     }
   }
 
-  // Abrir modal buscando os detalhes e a descrição completa do Planner
   async function openEditModal(taskId) {
     const task = allTasks.find(t => t.id === taskId);
     if (!task) return;
@@ -727,7 +792,6 @@
 
     document.getElementById("edit-modal").showModal();
 
-    // Busca os detalhes adicionais (descrição) da tarefa via API Graph
     try {
       const details = await graphFetch(`/planner/tasks/${taskId}/details`);
       document.getElementById("edit-description").value = details.description || "";
@@ -758,10 +822,8 @@
     }
 
     try {
-      // 1. Atualiza dados principais da tarefa
-      const updatedTask = await graphFetch(`/planner/tasks/${id}`, "PATCH", taskPayload, etag);
+      await graphFetch(`/planner/tasks/${id}`, "PATCH", taskPayload, etag);
       
-      // 2. Busca o ETag atualizado dos detalhes para salvar a descrição
       const detailsData = await graphFetch(`/planner/tasks/${id}/details`);
       const detailsEtag = detailsData["@odata.etag"];
 
