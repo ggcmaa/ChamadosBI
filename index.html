@@ -98,12 +98,13 @@
       display: flex; gap: 12px; background: var(--bg-card); padding: 16px; border-radius: 8px;
       border: 1px solid var(--border); box-shadow: var(--shadow); align-items: center; flex-wrap: wrap;
     }
-    input[type="text"], input[type="date"], select {
+    input[type="text"], input[type="date"], select, textarea {
       background: #f8faf9; color: var(--text-main); border: 1px solid var(--border);
       padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;
     }
-    input[type="text"]:focus, select:focus, input[type="date"]:focus { border-color: var(--cmaa-green-dark); }
+    input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--cmaa-green-dark); }
     input[type="text"] { flex: 1; min-width: 200px; }
+    textarea { width: 100%; resize: vertical; min-height: 90px; }
 
     /* Botões */
     button {
@@ -138,10 +139,6 @@
       border-left: 4px solid var(--cmaa-charcoal);
     }
     .card:hover { transform: translateY(-2px); }
-    .card.completed { opacity: 0.65; border-left: 4px solid var(--cmaa-green-dark); }
-    .card.in-progress { border-left: 4px solid var(--cmaa-lime); }
-
-    /* Cores do Semáforo nos Cards */
     .card.semaforo-ok { border-left: 4px solid var(--success); }
     .card.semaforo-warn { border-left: 4px solid var(--warning); }
     .card.semaforo-late { border-left: 4px solid var(--danger); }
@@ -175,7 +172,7 @@
     /* Modal */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
-      border-radius: 8px; padding: 24px; width: 90%; max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      border-radius: 8px; padding: 24px; width: 90%; max-width: 520px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
     dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
     .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
@@ -264,7 +261,7 @@
               <span id="kpi-red">0</span>
             </div>
             <div class="semaforo-kpi yellow">
-              <span>🟡 Atenção (Vencem hoje/amanhã)</span>
+              <span>🟡 Atenção (Vence hoje/amanhã)</span>
               <span id="kpi-yellow">0</span>
             </div>
             <div class="semaforo-kpi green">
@@ -297,7 +294,7 @@
     </div>
   </div>
 
-  <!-- Modal de Edição -->
+  <!-- Modal de Edição com Descrição -->
   <dialog id="edit-modal">
     <h3 style="margin-top:0; color: var(--cmaa-charcoal);">Editar / Gerenciar Atividade</h3>
     <input type="hidden" id="edit-task-id">
@@ -311,6 +308,11 @@
     <div class="form-group">
       <label>Bucket (Coluna)</label>
       <select id="edit-bucket"></select>
+    </div>
+
+    <div class="form-group">
+      <label>Descrição do Chamado</label>
+      <textarea id="edit-description" placeholder="Detalhes ou descrição completa da atividade..."></textarea>
     </div>
     
     <div class="form-group">
@@ -342,8 +344,8 @@
   // =========================================================================
   const msalConfig = {
     auth: {
-      clientId: "92b0526e-e8f0-4cca-a711-b557e5c15fbc",
-      authority: "https://login.microsoftonline.com/ca4b9034-c4ac-4ca2-b97e-1e57700b0d20",
+      clientId: "SEU_CLIENT_ID_AQUI",
+      authority: "https://login.microsoftonline.com/SEU_TENANT_ID_AQUI",
       redirectUri: window.location.origin + "/" 
     },
     cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
@@ -509,13 +511,11 @@
     return names.join(", ");
   }
 
-  // Cálculo do Semáforo para cada tarefa
   function calculateSemaforo(task) {
     if (task.percentComplete === 100) return { status: 'ok', label: 'Concluído', class: 'semaforo-ok' };
     if (!task.createdDateTime) return { status: 'ok', label: 'Sem Data', class: 'semaforo-ok' };
 
     const bucketName = (bucketsMap[task.bucketId] || "").toLowerCase().trim();
-    // Procura a regra correspondente ou assume 5 dias padrão
     let daysLimit = 5;
     for (const [key, val] of Object.entries(SLA_RULES)) {
       if (bucketName.includes(key)) {
@@ -536,7 +536,7 @@
     } else if (diffDays <= 2) {
       return { status: 'warn', label: `Atenção (Vence em ${diffDays}d)`, class: 'semaforo-warn', dueDate };
     } else {
-      return { status: 'ok', label: `No Prazo (${diffDays}drestantes)`, class: 'semaforo-ok', dueDate };
+      return { status: 'ok', label: `No Prazo (${diffDays}d)`, class: 'semaforo-ok', dueDate };
     }
   }
 
@@ -603,7 +603,7 @@
           </div>
 
           <div class="actions">
-            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar</button>
+            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar / Detalhes</button>
             ${!isDone ? `<button onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 100)">✔ Concluir</button>` : ''}
           </div>
         </div>
@@ -632,7 +632,6 @@
     gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
   }
 
-  // Renderizar a Visão de Semáforo
   async function renderSemaforo() {
     const statusFilter = document.getElementById("semaforo-filter-status").value;
     const gridLate = document.getElementById("grid-semaforo-late");
@@ -678,7 +677,7 @@
           </div>
 
           <div class="actions">
-            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar</button>
+            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar / Detalhes</button>
             ${!isDone ? `<button onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 100)">✔ Concluir</button>` : ''}
           </div>
         </div>
@@ -713,7 +712,8 @@
     }
   }
 
-  function openEditModal(taskId) {
+  // Abrir modal buscando os detalhes e a descrição completa do Planner
+  async function openEditModal(taskId) {
     const task = allTasks.find(t => t.id === taskId);
     if (!task) return;
 
@@ -723,8 +723,18 @@
     document.getElementById("edit-bucket").value = task.bucketId || "";
     document.getElementById("edit-progress").value = task.percentComplete;
     document.getElementById("edit-due").value = task.dueDateTime ? task.dueDateTime.split("T")[0] : "";
+    document.getElementById("edit-description").value = "Carregando descrição...";
 
     document.getElementById("edit-modal").showModal();
+
+    // Busca os detalhes adicionais (descrição) da tarefa via API Graph
+    try {
+      const details = await graphFetch(`/planner/tasks/${taskId}/details`);
+      document.getElementById("edit-description").value = details.description || "";
+    } catch (error) {
+      console.error("Erro ao carregar detalhes da tarefa:", error);
+      document.getElementById("edit-description").value = "";
+    }
   }
 
   async function saveTaskEdit() {
@@ -732,10 +742,11 @@
     const etag = document.getElementById("edit-task-etag").value;
     const title = document.getElementById("edit-title").value.trim();
     const bucketId = document.getElementById("edit-bucket").value;
+    const description = document.getElementById("edit-description").value;
     const percentComplete = parseInt(document.getElementById("edit-progress").value, 10);
     const dueDate = document.getElementById("edit-due").value;
 
-    const payload = {
+    const taskPayload = {
       title: title,
       bucketId: bucketId,
       percentComplete: percentComplete,
@@ -743,11 +754,21 @@
     };
 
     if (percentComplete === 100) {
-      payload.completedDateTime = new Date().toISOString();
+      taskPayload.completedDateTime = new Date().toISOString();
     }
 
     try {
-      await graphFetch(`/planner/tasks/${id}`, "PATCH", payload, etag);
+      // 1. Atualiza dados principais da tarefa
+      const updatedTask = await graphFetch(`/planner/tasks/${id}`, "PATCH", taskPayload, etag);
+      
+      // 2. Busca o ETag atualizado dos detalhes para salvar a descrição
+      const detailsData = await graphFetch(`/planner/tasks/${id}/details`);
+      const detailsEtag = detailsData["@odata.etag"];
+
+      await graphFetch(`/planner/tasks/${id}/details`, "PATCH", {
+        description: description
+      }, detailsEtag);
+
       document.getElementById("edit-modal").close();
       loadChamadosPlan();
     } catch (error) {
