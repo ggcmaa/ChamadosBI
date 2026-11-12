@@ -156,13 +156,13 @@
 
 <script>
   // =========================================================================
-  // 1. CONFIGURAÇÃO DO ENTRA ID (SUBSTITUA PELOS SEUS DADOS DO AZURE)
+  // 1. CONFIGURAÇÃO DO ENTRA ID (AJUSTE DE URL DINÂMICO APLICADO)
   // =========================================================================
   const msalConfig = {
     auth: {
-      clientId: "SEU_CLIENT_ID_AQUI",
-      authority: "https://login.microsoftonline.com/SEU_TENANT_ID_AQUI",
-      redirectUri: window.location.origin + window.location.pathname
+      clientId: "SEU_CLIENT_ID_AQUI", // Insira seu Client ID do Azure
+      authority: "https://login.microsoftonline.com/SEU_TENANT_ID_AQUI", // Insira seu Tenant ID
+      redirectUri: window.location.origin + "/" // Ajuste dinâmico: captura exatamente a raiz (ex: https://ggcmaa.github.io/)
     },
     cache: {
       cacheLocation: "sessionStorage",
@@ -420,7 +420,6 @@
         ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) 
         : "Sem prazo";
 
-      // Escapa aspas do ETag para passar no onclick HTML com segurança
       const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
 
       return `
