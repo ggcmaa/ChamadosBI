@@ -309,12 +309,20 @@
             <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
               <h3 class="chart-title" style="margin: 0;">📅 Chamados Abertos x Concluídos por Mês</h3>
               <div class="legend-container">
-                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-green-dark);"></div> Abertos</div>
-                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-lime);"></div> Concluídos</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-green-dark);"></div> Abertos (Início)</div>
+                <div class="legend-item"><div class="legend-color" style="background: var(--cmaa-lime);"></div> Concluídos (Fechamento)</div>
               </div>
             </div>
             <div id="monthly-comparison-bars" style="display: flex; flex-direction: column; gap: 14px;">
               <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando comparativo mensal...</span>
+            </div>
+          </div>
+
+          <!-- Gráfico Horizontal: SLA Médio por Mês -->
+          <div class="chart-container">
+            <h3 class="chart-title">⏱️ SLA Médio por Mês (Baseado na Conclusão)</h3>
+            <div id="monthly-sla-bars" style="display: flex; flex-direction: column; gap: 12px;">
+              <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando SLA médio mensal...</span>
             </div>
           </div>
 
@@ -623,7 +631,7 @@
       if (kpiStatus === "completed" && t.percentComplete !== 100) return false;
       if (kpiStatus === "open" && t.percentComplete === 100) return false;
 
-      // 2. Filtro de Data (Baseado na criação)
+      // 2. Filtro de Data (Baseado na data de início / criação)
       if (t.createdDateTime) {
         const created = new Date(t.createdDateTime);
         if (startDate && created < startDate) return false;
@@ -686,39 +694,43 @@
     });
     chartContainer.innerHTML = barsHtml || "<span style='color: var(--text-muted);'>Nenhum dado disponível.</span>";
 
-    // 2. Gráfico Horizontal: Chamados Abertos vs Concluídos por Mês
-    let monthlyData = {}; // { "MM/YYYY": { abertos: 0, concluidos: 0 } }
+    // 2. Gráfico Horizontal: Chamados Abertos (Data de Início) x Concluídos (Data de Conclusão) por Mês
+    let monthlyComparison = {}; // { "MM/YYYY": { abertos: 0, concluidos: 0 } }
 
     filteredTasks.forEach(t => {
+      // Chamados Abertos por mês (considerando data de início/criação)
       if (t.createdDateTime) {
         const cDate = new Date(t.createdDateTime);
         const monthKey = `${String(cDate.getMonth() + 1).padStart(2, '0')}/${cDate.getFullYear()}`;
-        if (!monthlyData[monthKey]) monthlyData[monthKey] = { abertos: 0, concluidos: 0 };
-        
-        if (t.percentComplete === 100) {
-          monthlyData[monthKey].concluidos++;
-        } else {
-          monthlyData[monthKey].abertos++;
-        }
+        if (!monthlyComparison[monthKey]) monthlyComparison[monthKey] = { abertos: 0, concluidos: 0 };
+        monthlyComparison[monthKey].abertos++;
+      }
+
+      // Chamados Concluídos por mês (considerando data de conclusão)
+      if (t.percentComplete === 100 && t.completedDateTime) {
+        const compDate = new Date(t.completedDateTime);
+        const monthKey = `${String(compDate.getMonth() + 1).padStart(2, '0')}/${compDate.getFullYear()}`;
+        if (!monthlyComparison[monthKey]) monthlyComparison[monthKey] = { abertos: 0, concluidos: 0 };
+        monthlyComparison[monthKey].concluidos++;
       }
     });
 
     const monthlyContainer = document.getElementById("monthly-comparison-bars");
     let monthlyHtml = "";
-    const sortedMonths = Object.keys(monthlyData).sort();
+    const sortedMonths = Object.keys(monthlyComparison).sort();
 
     if (sortedMonths.length === 0) {
       monthlyHtml = "<span style='color: var(--text-muted); font-size: 0.85rem;'>Nenhum dado para exibir no período selecionado.</span>";
     } else {
       let maxMonthVal = 1;
       sortedMonths.forEach(m => {
-        const d = monthlyData[m];
+        const d = monthlyComparison[m];
         if (d.abertos > maxMonthVal) maxMonthVal = d.abertos;
         if (d.concluidos > maxMonthVal) maxMonthVal = d.concluidos;
       });
 
       sortedMonths.forEach(m => {
-        const d = monthlyData[m];
+        const d = monthlyComparison[m];
         const pctAbertos = Math.round((d.abertos / maxMonthVal) * 100);
         const pctConcluidos = Math.round((d.concluidos / maxMonthVal) * 100);
 
@@ -745,6 +757,54 @@
       });
     }
     monthlyContainer.innerHTML = monthlyHtml;
+
+    // 3. Gráfico Horizontal: SLA Médio por Mês (Baseado na Data de Conclusão)
+    let monthlySla = {}; // { "MM/YYYY": { sum: 0, count: 0 } }
+
+    filteredTasks.forEach(t => {
+      if (t.percentComplete === 100 && t.createdDateTime && t.completedDateTime) {
+        const compDate = new Date(t.completedDateTime);
+        const monthKey = `${String(compDate.getMonth() + 1).padStart(2, '0')}/${compDate.getFullYear()}`;
+        
+        const start = new Date(t.createdDateTime);
+        const diffDays = Math.ceil(Math.abs(compDate - start) / (1000 * 60 * 60 * 24));
+
+        if (!monthlySla[monthKey]) monthlySla[monthKey] = { sum: 0, count: 0 };
+        monthlySla[monthKey].sum += diffDays;
+        monthlySla[monthKey].count++;
+      }
+    });
+
+    const monthlySlaContainer = document.getElementById("monthly-sla-bars");
+    let monthlySlaHtml = "";
+    const sortedSlaMonths = Object.keys(monthlySla).sort();
+
+    if (sortedSlaMonths.length === 0) {
+      monthlySlaHtml = "<span style='color: var(--text-muted); font-size: 0.85rem;'>Nenhum chamado concluído com data de encerramento registrada para cálculo mensal de SLA.</span>";
+    } else {
+      let maxSlaAvg = 1;
+      sortedSlaMonths.forEach(m => {
+        const avg = monthlySla[m].sum / monthlySla[m].count;
+        if (avg > maxSlaAvg) maxSlaAvg = avg;
+      });
+
+      sortedSlaMonths.forEach(m => {
+        const data = monthlySla[m];
+        const avgDays = (data.sum / data.count).toFixed(1);
+        const barPct = Math.round((avgDays / maxSlaAvg) * 100);
+
+        monthlySlaHtml += `
+          <div class="bar-row">
+            <span class="bar-label">${m}</span>
+            <div class="bar-track">
+              <div class="bar-fill" style="width: ${barPct}%; background: var(--cmaa-green-mid);"></div>
+            </div>
+            <span class="bar-value">${avgDays} dias</span>
+          </div>
+        `;
+      });
+    }
+    monthlySlaContainer.innerHTML = monthlySlaHtml;
   }
 
   async function quickUpdateStatus(taskId, etag, newPercent) {
