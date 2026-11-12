@@ -8,155 +8,219 @@
   <script src="https://alcdn.msauth.net/browser/2.38.0/js/msal-browser.min.js"></script>
   <style>
     :root {
-      --bg-main: #0d1117;
-      --bg-card: #161b22;
-      --border: #30363d;
-      --text-main: #e6edf3;
-      --text-muted: #8b949e;
-      --accent: #2ea043;
-      --accent-hover: #3fb950;
-      --warning: #d29922;
-      --danger: #f85149;
+      --bg-main: #f4f6f9;
+      --bg-card: #ffffff;
+      --bg-sidebar: #ffffff;
+      --border: #d0d7de;
+      --text-main: #24292f;
+      --text-muted: #57606a;
+      --accent: #0969da;
+      --accent-hover: #0351b4;
+      --success: #1f883d;
+      --warning: #9a6700;
+      --shadow: 0 1px 3px rgba(27, 31, 35, 0.08);
     }
 
     * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
-    body { background: var(--bg-main); color: var(--text-main); margin: 0; padding: 24px; }
+    body { background: var(--bg-main); color: var(--text-main); margin: 0; padding: 0; height: 100vh; overflow: hidden; }
+
+    /* --- TELA DE LOGIN --- */
+    #login-screen {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100vh; background: var(--bg-main); gap: 16px; text-align: center; padding: 20px;
+    }
+    #login-screen h1 { font-size: 2rem; margin-bottom: 0; color: var(--text-main); }
+    #login-screen p { color: var(--text-muted); font-size: 1rem; max-width: 400px; }
+
+    /* --- LAYOUT PRINCIPAL (APP) --- */
+    #app-screen { display: none; height: 100vh; width: 100vw; display: flex; }
     
-    .container { max-width: 1100px; margin: 0 auto; }
+    /* Menu Lateral */
+    aside {
+      width: 280px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; padding: 20px; gap: 16px; overflow-y: auto; flex-shrink: 0;
+    }
+    aside h2 { font-size: 1.1rem; margin: 0; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .plan-list { display: flex; flex-direction: column; gap: 6px; }
+    .plan-item {
+      padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text-muted);
+      transition: 0.2s; border: 1px solid transparent; text-align: left; background: transparent; width: 100%;
+    }
+    .plan-item:hover { background: #f0f3f6; color: var(--text-main); }
+    .plan-item.active { background: #ddf4ff; color: var(--accent); border-color: #b6e3ff; font-weight: 600; }
+
+    /* Conteúdo Principal */
+    .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
     
     header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding-bottom: 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px;
+      background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 16px 24px;
+      display: flex; justify-content: space-between; align-items: center; box-shadow: var(--shadow);
     }
+    .user-info { font-size: 0.85rem; color: var(--text-muted); }
 
-    h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 10px; }
-    
+    .content-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+
+    /* Barra de Ações e Filtros */
+    .controls {
+      display: flex; gap: 12px; background: var(--bg-card); padding: 16px; border-radius: 8px;
+      border: 1px solid var(--border); box-shadow: var(--shadow); align-items: center; flex-wrap: wrap;
+    }
+    input[type="text"], input[type="date"], select {
+      background: #f6f8fa; color: var(--text-main); border: 1px solid var(--border);
+      padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;
+    }
+    input[type="text"] { flex: 1; min-width: 200px; }
+
+    /* Botões */
     button {
       background: var(--accent); color: #fff; border: none; padding: 8px 16px;
-      border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s;
+      border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; font-size: 0.9rem;
     }
     button:hover { background: var(--accent-hover); }
-    button.secondary { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-main); }
-    button.secondary:hover { border-color: var(--text-muted); }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #f6f8fa; border: 1px solid var(--border); color: var(--text-main); }
+    button.secondary:hover { background: #f3f4f6; border-color: var(--text-muted); }
 
-    .controls {
-      display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap;
-      background: var(--bg-card); padding: 16px; border-radius: 8px; border: 1px solid var(--border);
-      align-items: center;
-    }
-
-    select, input[type="text"], input[type="date"] {
-      background: var(--bg-main); color: var(--text-main); border: 1px solid var(--border);
-      padding: 8px 12px; border-radius: 6px; outline: none;
-    }
-    input[type="text"] { flex: 1; min-width: 220px; }
-
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+    /* Seções de Tempo */
+    .time-section { display: flex; flex-direction: column; gap: 12px; }
+    .time-section h3 { font-size: 1rem; margin: 0; padding-bottom: 6px; border-bottom: 2px solid var(--border); color: var(--text-main); display: flex; align-items: center; gap: 8px; }
     
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    
+    /* Cards */
     .card {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
       padding: 16px; display: flex; flex-direction: column; justify-content: space-between; gap: 12px;
+      box-shadow: var(--shadow); transition: transform 0.2s;
     }
-    .card.completed { opacity: 0.6; border-left: 4px solid var(--accent); }
+    .card:hover { transform: translateY(-2px); }
+    .card.completed { opacity: 0.6; border-left: 4px solid var(--success); }
     .card.in-progress { border-left: 4px solid var(--warning); }
 
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-    .task-title { font-weight: 600; font-size: 1rem; margin: 0; line-height: 1.4; }
+    .task-title { font-weight: 600; font-size: 0.95rem; margin: 0; line-height: 1.4; color: var(--text-main); }
     
     .badge {
-      font-size: 0.75rem; padding: 3px 8px; border-radius: 12px;
-      background: rgba(46, 160, 67, 0.15); color: var(--accent-hover); white-space: nowrap;
+      font-size: 0.7rem; padding: 3px 8px; border-radius: 12px;
+      background: rgba(31, 136, 61, 0.1); color: var(--success); white-space: nowrap; font-weight: 600;
     }
-    .badge.progress { background: rgba(210, 153, 34, 0.15); color: var(--warning); }
-    .badge.pending { background: rgba(139, 148, 158, 0.15); color: var(--text-muted); }
+    .badge.progress { background: rgba(154, 103, 0, 0.1); color: var(--warning); }
+    .badge.pending { background: rgba(87, 96, 106, 0.1); color: var(--text-muted); }
 
     .meta { font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
-    
-    .actions { display: flex; gap: 8px; margin-top: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
-    .actions button { flex: 1; font-size: 0.8rem; padding: 6px 10px; }
+    .actions { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
+    .actions button { flex: 1; font-size: 0.75rem; padding: 6px 8px; }
 
+    /* Modal */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
-      border-radius: 8px; padding: 20px; width: 90%; max-width: 450px;
+      border-radius: 8px; padding: 24px; width: 90%; max-width: 450px; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     }
-    dialog::backdrop { background: rgba(0, 0, 0, 0.7); }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
     .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <header>
-    <div>
-      <h1>Gestão de Tarefas — Planner</h1>
-      <small id="user-info" style="color: var(--text-muted);">Não autenticado</small>
-    </div>
-    <div>
-      <button id="btn-login" onclick="signIn()">Entrar com Microsoft</button>
-      <button id="btn-logout" class="secondary" onclick="signOut()" style="display:none;">Sair</button>
-    </div>
-  </header>
+  <!-- TELA 1: LOGIN -->
+  <div id="login-screen">
+    <h1>Portal de Gestão — Planner</h1>
+    <p>Acesse com sua conta corporativa para gerenciar as atividades das equipes do Teams.</p>
+    <button onclick="signIn()" style="padding: 12px 28px; font-size: 1rem;">Entrar com Microsoft</button>
+  </div>
 
-  <main id="app-content" style="display:none;">
-    <!-- Controles de Seleção e Filtro -->
-    <div class="controls">
-      <select id="select-plan" onchange="onPlanChange()" title="Selecione o Plano da Equipe">
-        <option value="">Carregando planos da equipe...</option>
+  <!-- TELA 2: GESTÃO -->
+  <div id="app-screen" style="display: none;">
+    
+    <!-- Menu Lateral com Grupos e Planos -->
+    <aside>
+      <h2>📁 Equipes e Planos</h2>
+      <div id="sidebar-plans" class="plan-list">
+        <span style="color: var(--text-muted); font-size: 0.85rem;">Carregando equipes...</span>
+      </div>
+    </aside>
+
+    <!-- Conteúdo Principal -->
+    <div class="main-content">
+      <header>
+        <div>
+          <h2 id="current-plan-title" style="margin:0; font-size: 1.2rem;">Selecione um plano ao lado</h2>
+          <span id="user-info" class="user-info">Carregando usuário...</span>
+        </div>
+        <button class="secondary" onclick="signOut()">Sair</button>
+      </header>
+
+      <div class="content-body">
+        <!-- Barra de Filtros e Criação -->
+        <div class="controls">
+          <input type="text" id="filter-search" placeholder="🔍 Pesquisar por título ou responsável..." oninput="renderTasks()">
+          
+          <select id="filter-bucket" onchange="renderTasks()">
+            <option value="">Todos os Buckets (Colunas)</option>
+          </select>
+
+          <select id="filter-status" onchange="renderTasks()">
+            <option value="open">Pendentes e Em Andamento</option>
+            <option value="all">Todas as Tarefas</option>
+            <option value="completed">Concluídas (100%)</option>
+          </select>
+
+          <button class="secondary" onclick="loadTasksForSelectedPlan()">↻ Atualizar</button>
+        </div>
+
+        <!-- Seções Separadas por Tempo -->
+        <div class="time-section">
+          <h3>⚡ Esta semana</h3>
+          <div id="grid-week" class="grid"></div>
+        </div>
+
+        <div class="time-section">
+          <h3>📅 Este mês</h3>
+          <div id="grid-month" class="grid"></div>
+        </div>
+
+        <div class="time-section">
+          <h3>🗂️ Outras</h3>
+          <div id="grid-others" class="grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Edição -->
+  <dialog id="edit-modal">
+    <h3 style="margin-top:0;">Editar Atividade</h3>
+    <input type="hidden" id="edit-task-id">
+    <input type="hidden" id="edit-task-etag">
+    
+    <div class="form-group">
+      <label>Título da Tarefa</label>
+      <input type="text" id="edit-title">
+    </div>
+    
+    <div class="form-group">
+      <label>Progresso</label>
+      <select id="edit-progress">
+        <option value="0">Não Iniciada (0%)</option>
+        <option value="50">Em Andamento (50%)</option>
+        <option value="100">Concluída (100%)</option>
       </select>
-
-      <select id="filter-status" onchange="renderTasks()">
-        <option value="open">Pendentes e Em Andamento</option>
-        <option value="all">Todas as Tarefas do Plano</option>
-        <option value="completed">Concluídas (100%)</option>
-      </select>
-
-      <input type="text" id="new-task-title" placeholder="Título da nova atividade...">
-      <input type="date" id="new-task-due" title="Prazo de entrega">
-      <button onclick="createTask()">+ Nova Tarefa</button>
-      <button class="secondary" onclick="loadTasksForSelectedPlan()">↻ Atualizar</button>
     </div>
 
-    <!-- Lista de Tarefas -->
-    <div id="tasks-grid" class="grid"></div>
-  </main>
-</div>
+    <div class="form-group">
+      <label>Data de Conclusão (Prazo)</label>
+      <input type="date" id="edit-due">
+    </div>
 
-<!-- Modal de Edição -->
-<dialog id="edit-modal">
-  <h3 style="margin-top:0;">Editar Atividade</h3>
-  <input type="hidden" id="edit-task-id">
-  <input type="hidden" id="edit-task-etag">
-  
-  <div class="form-group">
-    <label>Título da Tarefa</label>
-    <input type="text" id="edit-title">
-  </div>
-  
-  <div class="form-group">
-    <label>Progresso</label>
-    <select id="edit-progress">
-      <option value="0">Não Iniciada (0%)</option>
-      <option value="50">Em Andamento (50%)</option>
-      <option value="100">Concluída (100%)</option>
-    </select>
-  </div>
-
-  <div class="form-group">
-    <label>Data de Conclusão (Prazo)</label>
-    <input type="date" id="edit-due">
-  </div>
-
-  <div class="modal-footer">
-    <button class="secondary" onclick="document.getElementById('edit-modal').close()">Cancelar</button>
-    <button onclick="saveTaskEdit()">Salvar Alterações</button>
-  </div>
-</dialog>
+    <div class="modal-footer">
+      <button class="secondary" onclick="document.getElementById('edit-modal').close()">Cancelar</button>
+      <button onclick="saveTaskEdit()">Salvar Alterações</button>
+    </div>
+  </dialog>
 
 <script>
   // =========================================================================
-  // 1. CONFIGURAÇÃO DO ENTRA ID
+  // CONFIGURAÇÃO DO ENTRA ID
   // =========================================================================
   const msalConfig = {
     auth: {
@@ -164,10 +228,7 @@
       authority: "https://login.microsoftonline.com/ca4b9034-c4ac-4ca2-b97e-1e57700b0d20",
       redirectUri: window.location.origin + "/" 
     },
-    cache: {
-      cacheLocation: "sessionStorage",
-      storeAuthStateInCookie: false
-    }
+    cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
   };
 
   const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All"];
@@ -175,14 +236,15 @@
 
   let currentAccount = null;
   let allTasks = [];
-  let currentPlanTitle = "";
-  let userCache = {}; // Cache para nomes de usuários
+  let bucketsMap = {}; // { bucketId: "Nome do Bucket" }
+  let userCache = {};  // { userId: "Nome do Usuário" }
+  let selectedPlanId = null;
 
   window.addEventListener("DOMContentLoaded", () => {
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
       currentAccount = accounts[0];
-      updateUIState(true);
+      showAppScreen();
       loadUserPlans();
     }
   });
@@ -191,16 +253,22 @@
     try {
       const loginResponse = await msalInstance.loginPopup({ scopes: graphScopes });
       currentAccount = loginResponse.account;
-      updateUIState(true);
+      showAppScreen();
       loadUserPlans();
     } catch (error) {
       console.error("Erro no login:", error);
-      alert("Falha na autenticação. Verifique o console ou as configurações do Azure.");
+      alert("Falha na autenticação. Verifique o console.");
     }
   }
 
   function signOut() {
     msalInstance.logoutPopup({ account: currentAccount });
+  }
+
+  function showAppScreen() {
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("app-screen").style.display = "flex";
+    document.getElementById("user-info").innerText = `${currentAccount.name} (${currentAccount.username})`;
   }
 
   async function getAccessToken() {
@@ -214,23 +282,10 @@
     }
   }
 
-  function updateUIState(isLoggedIn) {
-    document.getElementById("btn-login").style.display = isLoggedIn ? "none" : "inline-block";
-    document.getElementById("btn-logout").style.display = isLoggedIn ? "inline-block" : "none";
-    document.getElementById("app-content").style.display = isLoggedIn ? "block" : "none";
-    document.getElementById("user-info").innerText = isLoggedIn 
-      ? `Conectado como: ${currentAccount.name} (${currentAccount.username})` 
-      : "Não autenticado";
-  }
-
   async function graphFetch(endpoint, method = "GET", body = null, etag = null) {
     const token = await getAccessToken();
-    const headers = {
-      "Authorization": `Bearer ${token}`,
-      "Content-Type": "application/json"
-    };
+    const headers = { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" };
     if (etag) headers["If-Match"] = etag;
-
     const options = { method, headers };
     if (body) options.body = JSON.stringify(body);
 
@@ -243,82 +298,80 @@
   }
 
   // =========================================================================
-  // 2. BUSCA DE PLANOS E EQUIPES (GROUPS / PLANS)
+  // CARREGAR PLANOS NA SIDEBAR
   // =========================================================================
   async function loadUserPlans() {
-    const selectPlan = document.getElementById("select-plan");
-    selectPlan.innerHTML = '<option value="">Buscando equipes e planos...</option>';
+    const sidebar = document.getElementById("sidebar-plans");
+    sidebar.innerHTML = '<span style="color: var(--text-muted); font-size: 0.85rem;">Buscando equipes...</span>';
 
     try {
-      // 1. Busca os grupos/equipes que o usuário participa no Teams
       const groupsData = await graphFetch("/me/memberOf?$select=id,displayName");
       const groups = groupsData.value.filter(g => g["@odata.type"] === "#microsoft.graph.group");
 
-      let optionsHtml = '<option value="">-- Selecione um Plano da Equipe --</option>';
+      let html = "";
+      let firstPlanId = null;
 
-      // 2. Para cada grupo, busca os planos do Planner associados
       for (const group of groups) {
         try {
           const plansData = await graphFetch(`/groups/${group.id}/planner/plans`);
           if (plansData.value && plansData.value.length > 0) {
             for (const plan of plansData.value) {
-              optionsHtml += `<option value="${plan.id}">${group.displayName} ➔ ${plan.title}</option>`;
+              if (!firstPlanId) firstPlanId = plan.id;
+              html += `<button class="plan-item" id="plan-btn-${plan.id}" onclick="selectPlan('${plan.id}', '${group.displayName} ➔ ${plan.title}')">${group.displayName}<br><strong style="font-size:0.8rem">${plan.title}</strong></button>`;
             }
           }
-        } catch (e) {
-          // Grupos que não possuem planos associados retornam erro que pode ser ignorado
-        }
+        } catch (e) {}
       }
 
-      selectPlan.innerHTML = optionsHtml;
+      sidebar.innerHTML = html || '<span style="color:var(--text-muted)">Nenhum plano encontrado.</span>';
 
-      // Se houver planos, seleciona o primeiro automaticamente e carrega as tarefas
-      if (selectPlan.options.length > 1) {
-        selectPlan.selectedIndex = 1;
-        loadTasksForSelectedPlan();
-      } else {
-        selectPlan.innerHTML = '<option value="">Nenhum plano encontrado nas suas equipes.</option>';
+      if (firstPlanId) {
+        const firstBtn = document.getElementById(`plan-btn-${firstPlanId}`);
+        if (firstBtn) firstBtn.click();
       }
-
     } catch (error) {
-      console.error(error);
-      selectPlan.innerHTML = '<option value="">Erro ao carregar planos das equipes.</option>';
+      sidebar.innerHTML = '<span style="color:var(--danger)">Erro ao carregar equipes.</span>';
     }
   }
 
-  function onPlanChange() {
+  function selectPlan(planId, titleText) {
+    document.querySelectorAll(".plan-item").forEach(el => el.classList.remove("active"));
+    const btn = document.getElementById(`plan-btn-${planId}`);
+    if (btn) btn.classList.add("active");
+
+    selectedPlanId = planId;
+    document.getElementById("current-plan-title").innerText = titleText;
     loadTasksForSelectedPlan();
   }
 
   // =========================================================================
-  // 3. CARREGAR TODAS AS TAREFAS DO PLANO SELECIONADO
+  // CARREGAR TAREFAS E BUCKETS DO PLANO
   // =========================================================================
   async function loadTasksForSelectedPlan() {
-    const planId = document.getElementById("select-plan").value;
-    const grid = document.getElementById("tasks-grid");
-
-    if (!planId) {
-      grid.innerHTML = "<p style='color:var(--text-muted)'>Selecione um plano acima para ver as atividades.</p>";
-      return;
-    }
-
-    grid.innerHTML = "<p>Carregando todas as tarefas do plano...</p>";
+    if (!selectedPlanId) return;
 
     try {
-      // Busca TODAS as tarefas do plano (independente de quem é o responsável)
-      const data = await graphFetch(`/planner/plans/${planId}/tasks`);
-      allTasks = data.value || [];
+      // Carrega Buckets para o filtro
+      const bucketsData = await graphFetch(`/planner/plans/${selectedPlanId}/buckets`);
+      bucketsMap = {};
+      let bucketSelectHtml = '<option value="">Todos os Buckets (Colunas)</option>';
+      (bucketsData.value || []).forEach(b => {
+        bucketsMap[b.id] = b.name;
+        bucketSelectHtml += `<option value="${b.id}">${b.name}</option>`;
+      });
+      document.getElementById("filter-bucket").innerHTML = bucketSelectHtml;
+
+      // Carrega Tarefas
+      const tasksData = await graphFetch(`/planner/plans/${selectedPlanId}/tasks`);
+      allTasks = tasksData.value || [];
       renderTasks();
     } catch (error) {
       console.error(error);
-      grid.innerHTML = `<p style="color:var(--danger)">Erro ao carregar tarefas: ${error.message}</p>`;
     }
   }
 
-  // Resolver nome do usuário atribuído (com cache para otimizar)
   async function getAssigneeNames(assignments) {
     if (!assignments || Object.keys(assignments).length === 0) return "Não atribuída";
-    
     let names = [];
     for (const userId of Object.keys(assignments)) {
       if (!userCache[userId]) {
@@ -335,45 +388,108 @@
   }
 
   // =========================================================================
-  // 4. CRIAR, EDITAR E ATUALIZAR TAREFAS
+  // RENDERIZAÇÃO E FILTRAGEM (TEMPO E BUSCA)
   // =========================================================================
-  async function createTask() {
-    const planId = document.getElementById("select-plan").value;
-    const title = document.getElementById("new-task-title").value.trim();
-    const dueDate = document.getElementById("new-task-due").value;
+  async function renderTasks() {
+    const searchText = document.getElementById("filter-search").value.toLowerCase();
+    const selectedBucket = document.getElementById("filter-bucket").value;
+    const statusFilter = document.getElementById("filter-status").value;
 
-    if (!planId || !title) {
-      alert("Selecione um Plano e informe o título da tarefa.");
-      return;
-    }
+    const gridWeek = document.getElementById("grid-week");
+    const gridMonth = document.getElementById("grid-month");
+    const gridOthers = document.getElementById("grid-others");
 
-    try {
-      const bucketsData = await graphFetch(`/planner/plans/${planId}/buckets`);
-      const firstBucketId = bucketsData.value?.[0]?.id;
+    gridWeek.innerHTML = gridMonth.innerHTML = gridOthers.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>Carregando...</p>";
 
-      const payload = {
-        planId: planId,
-        title: title
-      };
+    // 1. Filtragem básica (Status e Bucket)
+    let filtered = allTasks.filter(t => {
+      if (statusFilter === "open" && t.percentComplete === 100) return false;
+      if (statusFilter === "completed" && t.percentComplete !== 100) return false;
+      if (selectedBucket && t.bucketId !== selectedBucket) return false;
+      return true;
+    });
 
-      if (firstBucketId) payload.bucketId = firstBucketId;
-      if (dueDate) payload.dueDateTime = `${dueDate}T18:00:00Z`;
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Domingo
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6); // Sábado
 
-      await graphFetch("/planner/tasks", "POST", payload);
+    let weekHtml = "", monthHtml = "", othersHtml = "";
+    let weekCount = 0, monthCount = 0, othersCount = 0;
+
+    for (const task of filtered) {
+      const assigneeName = await getAssigneeNames(task.assignments);
+
+      // 2. Filtro de Texto (Busca por título ou responsável)
+      if (searchText && !task.title.toLowerCase().includes(searchText) && !assigneeName.toLowerCase().includes(searchText)) {
+        continue;
+      }
+
+      const isDone = task.percentComplete === 100;
+      const isProgress = task.percentComplete > 0 && task.percentComplete < 100;
       
-      document.getElementById("new-task-title").value = "";
-      document.getElementById("new-task-due").value = "";
-      loadTasksForSelectedPlan();
-    } catch (error) {
-      alert("Erro ao criar tarefa: " + error.message);
+      let statusLabel = "Não iniciada";
+      let badgeClass = "pending";
+      let cardClass = "";
+
+      if (isDone) { statusLabel = "Concluída"; badgeClass = ""; cardClass = "completed"; }
+      else if (isProgress) { statusLabel = "Em andamento"; badgeClass = "progress"; cardClass = "in-progress"; }
+
+      const dueFormatted = task.dueDateTime 
+        ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) 
+        : "Sem prazo";
+
+      const bucketName = bucketsMap[task.bucketId] || "Geral";
+      const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
+
+      const cardHtml = `
+        <div class="card ${cardClass}">
+          <div>
+            <div class="card-header">
+              <p class="task-title">${task.title}</p>
+              <span class="badge ${badgeClass}">${statusLabel}</span>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+              <span>📌 <strong>Coluna:</strong> ${bucketName}</span>
+              <span>👤 <strong>Responsável:</strong> ${assigneeName}</span>
+              <span>📅 <strong>Prazo:</strong> ${dueFormatted}</span>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar</button>
+            ${!isDone ? `<button onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 100)">✔ Concluir</button>` : ''}
+          </div>
+        </div>
+      `;
+
+      // 3. Classificação Temporal por Prazo
+      if (!task.dueDateTime) {
+        othersHtml += cardHtml; othersCount++;
+      } else {
+        const dueDate = new Date(task.dueDateTime);
+        if (dueDate >= startOfWeek && dueDate <= endOfWeek) {
+          weekHtml += cardHtml; weekCount++;
+        } else if (dueDate.getMonth() === now.getMonth() && dueDate.getFullYear() === now.getFullYear()) {
+          monthHtml += cardHtml; monthCount++;
+        } else {
+          othersHtml += cardHtml; othersCount++;
+        }
+      }
     }
+
+    gridWeek.innerHTML = weekCount > 0 ? weekHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa nesta semana.</p>";
+    gridMonth.innerHTML = monthCount > 0 ? monthHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa neste mês.</p>";
+    gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa em outras datas.</p>";
   }
 
+  // =========================================================================
+  // AÇÕES (EDITAR / CONCLUIR)
+  // =========================================================================
   async function quickUpdateStatus(taskId, etag, newPercent) {
     try {
-      await graphFetch(`/planner/tasks/${taskId}`, "PATCH", {
-        percentComplete: newPercent
-      }, etag);
+      await graphFetch(`/planner/tasks/${taskId}`, "PATCH", { percentComplete: newPercent }, etag);
       loadTasksForSelectedPlan();
     } catch (error) {
       alert("Erro ao atualizar status. Atualizando lista...");
@@ -414,77 +530,6 @@
     } catch (error) {
       alert("Erro ao salvar edição: " + error.message);
     }
-  }
-
-  // =========================================================================
-  // 5. RENDERIZAÇÃO NA TELA
-  // =========================================================================
-  async function renderTasks() {
-    const grid = document.getElementById("tasks-grid");
-    const filter = document.getElementById("filter-status").value;
-
-    const filtered = allTasks.filter(t => {
-      if (filter === "open") return t.percentComplete < 100;
-      if (filter === "completed") return t.percentComplete === 100;
-      return true;
-    });
-
-    if (filtered.length === 0) {
-      grid.innerHTML = "<p style='color:var(--text-muted)'>Nenhuma tarefa encontrada neste plano com o filtro atual.</p>";
-      return;
-    }
-
-    grid.innerHTML = "<p>Carregando detalhes e responsáveis...</p>";
-
-    let cardsHtml = "";
-    for (const task of filtered) {
-      const isDone = task.percentComplete === 100;
-      const isProgress = task.percentComplete > 0 && task.percentComplete < 100;
-      
-      let statusLabel = "Não iniciada";
-      let badgeClass = "pending";
-      let cardClass = "";
-
-      if (isDone) {
-        statusLabel = "Concluída";
-        badgeClass = "";
-        cardClass = "completed";
-      } else if (isProgress) {
-        statusLabel = "Em andamento";
-        badgeClass = "progress";
-        cardClass = "in-progress";
-      }
-
-      const dueFormatted = task.dueDateTime 
-        ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) 
-        : "Sem prazo";
-
-      const assigneeName = await getAssigneeNames(task.assignments);
-      const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
-
-      cardsHtml += `
-        <div class="card ${cardClass}">
-          <div>
-            <div class="card-header">
-              <p class="task-title">${task.title}</p>
-              <span class="badge ${badgeClass}">${statusLabel}</span>
-            </div>
-            <div class="meta" style="margin-top:8px;">
-              <span>👤 <strong>Responsável:</strong> ${assigneeName}</span>
-              <span>📅 <strong>Prazo:</strong> ${dueFormatted}</span>
-            </div>
-          </div>
-
-          <div class="actions">
-            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar</button>
-            ${!isProgress && !isDone ? `<button class="secondary" onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 50)">▶ Iniciar</button>` : ''}
-            ${!isDone ? `<button onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 100)">✔ Encerrar</button>` : ''}
-          </div>
-        </div>
-      `;
-    }
-
-    grid.innerHTML = cardsHtml;
   }
 </script>
 </body>
