@@ -66,7 +66,7 @@
     
     .menu-list { display: flex; flex-direction: column; gap: 6px; }
     .menu-item {
-      padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--cmaa-green-dark);
+      padding: 10px 12px; border-radius: 6px; font-size: 0.9rem; color: var(--cmaa-green-dark);
       background: rgba(0, 121, 52, 0.1); border-color: rgba(0, 121, 52, 0.3); font-weight: 600;
       border-left: 4px solid var(--cmaa-green-dark); display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 1px solid transparent;
     }
@@ -105,6 +105,8 @@
     button:hover { background: var(--accent-hover); box-shadow: 0 2px 6px rgba(0, 121, 52, 0.25); }
     button.secondary { background: #f4f6f5; border: 1px solid var(--border); color: var(--cmaa-charcoal); }
     button.secondary:hover { background: #e8edea; border-color: var(--text-muted); box-shadow: none; }
+    button.danger { background: var(--danger); color: #fff; }
+    button.danger:hover { background: #a81a22; box-shadow: 0 2px 6px rgba(207, 34, 46, 0.25); }
 
     /* Seções de Tempo */
     .time-section { display: flex; flex-direction: column; gap: 12px; }
@@ -147,11 +149,12 @@
     /* Modal */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
-      border-radius: 8px; padding: 24px; width: 90%; max-width: 450px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+      border-radius: 8px; padding: 24px; width: 90%; max-width: 480px; box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
     dialog::backdrop { background: rgba(0, 0, 0, 0.45); }
     .form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-    .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+    .modal-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+    .modal-buttons { display: flex; gap: 10px; }
   </style>
 </head>
 <body>
@@ -228,15 +231,22 @@
     </div>
   </div>
 
-  <!-- Modal de Edição -->
+  <!-- Modal de Edição, Mudança de Bucket e Exclusão -->
   <dialog id="edit-modal">
-    <h3 style="margin-top:0; color: var(--cmaa-charcoal);">Editar Atividade</h3>
+    <h3 style="margin-top:0; color: var(--cmaa-charcoal);">Editar / Gerenciar Atividade</h3>
     <input type="hidden" id="edit-task-id">
     <input type="hidden" id="edit-task-etag">
     
     <div class="form-group">
       <label>Título da Tarefa</label>
       <input type="text" id="edit-title">
+    </div>
+
+    <div class="form-group">
+      <label>Bucket (Coluna)</label>
+      <select id="edit-bucket">
+        <!-- Preenchido dinamicamente -->
+      </select>
     </div>
     
     <div class="form-group">
@@ -254,8 +264,11 @@
     </div>
 
     <div class="modal-footer">
-      <button class="secondary" onclick="document.getElementById('edit-modal').close()">Cancelar</button>
-      <button onclick="saveTaskEdit()">Salvar Alterações</button>
+      <button class="danger" onclick="deleteTask()">🗑️ Deletar Tarefa</button>
+      <div class="modal-buttons">
+        <button class="secondary" onclick="document.getElementById('edit-modal').close()">Cancelar</button>
+        <button onclick="saveTaskEdit()">Salvar Alterações</button>
+      </div>
     </div>
   </dialog>
 
@@ -365,12 +378,17 @@
     try {
       const bucketsData = await graphFetch(`/planner/plans/${chamadosPlanId}/buckets`);
       bucketsMap = {};
-      let bucketSelectHtml = '<option value="">Todos os Buckets (Colunas)</option>';
+      let filterSelectHtml = '<option value="">Todos os Buckets (Colunas)</option>';
+      let modalSelectHtml = '';
+      
       (bucketsData.value || []).forEach(b => {
         bucketsMap[b.id] = b.name;
-        bucketSelectHtml += `<option value="${b.id}">${b.name}</option>`;
+        filterSelectHtml += `<option value="${b.id}">${b.name}</option>`;
+        modalSelectHtml += `<option value="${b.id}">${b.name}</option>`;
       });
-      document.getElementById("filter-bucket").innerHTML = bucketSelectHtml;
+      
+      document.getElementById("filter-bucket").innerHTML = filterSelectHtml;
+      document.getElementById("edit-bucket").innerHTML = modalSelectHtml;
 
       const tasksData = await graphFetch(`/planner/plans/${chamadosPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
@@ -510,6 +528,7 @@
     document.getElementById("edit-task-id").value = task.id;
     document.getElementById("edit-task-etag").value = task["@odata.etag"];
     document.getElementById("edit-title").value = task.title;
+    document.getElementById("edit-bucket").value = task.bucketId || "";
     document.getElementById("edit-progress").value = task.percentComplete;
     document.getElementById("edit-due").value = task.dueDateTime ? task.dueDateTime.split("T")[0] : "";
 
@@ -520,11 +539,13 @@
     const id = document.getElementById("edit-task-id").value;
     const etag = document.getElementById("edit-task-etag").value;
     const title = document.getElementById("edit-title").value.trim();
+    const bucketId = document.getElementById("edit-bucket").value;
     const percentComplete = parseInt(document.getElementById("edit-progress").value, 10);
     const dueDate = document.getElementById("edit-due").value;
 
     const payload = {
       title: title,
+      bucketId: bucketId,
       percentComplete: percentComplete,
       dueDateTime: dueDate ? `${dueDate}T18:00:00Z` : null
     };
@@ -539,6 +560,24 @@
       loadChamadosPlan();
     } catch (error) {
       alert("Erro ao salvar edição: " + error.message);
+    }
+  }
+
+  async function deleteTask() {
+    const id = document.getElementById("edit-task-id").value;
+    const etag = document.getElementById("edit-task-etag").value;
+    const taskTitle = document.getElementById("edit-title").value;
+
+    if (!confirm(`Deseja realmente cancelar/deletar a atividade "${taskTitle}"?`)) {
+      return;
+    }
+
+    try {
+      await graphFetch(`/planner/tasks/${id}`, "DELETE", null, etag);
+      document.getElementById("edit-modal").close();
+      loadChamadosPlan();
+    } catch (error) {
+      alert("Erro ao deletar tarefa: " + error.message);
     }
   }
 </script>
