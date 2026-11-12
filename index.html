@@ -66,9 +66,15 @@
     
     .menu-list { display: flex; flex-direction: column; gap: 6px; }
     .menu-item {
-      padding: 10px 12px; border-radius: 6px; font-size: 0.9rem; color: var(--cmaa-green-dark);
-      background: rgba(0, 121, 52, 0.1); border-color: rgba(0, 121, 52, 0.3); font-weight: 600;
-      border-left: 4px solid var(--cmaa-green-dark); display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; border: 1px solid transparent;
+      padding: 10px 12px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; color: var(--text-muted);
+      transition: 0.2s; border: 1px solid transparent; text-align: left; background: transparent; width: 100%;
+      font-weight: 500; display: flex; align-items: center; gap: 8px;
+    }
+    .menu-item:hover { background: #edf3ef; color: var(--text-main); }
+    .menu-item.active {
+      background: rgba(0, 121, 52, 0.1); color: var(--cmaa-green-dark);
+      border-color: rgba(0, 121, 52, 0.3); font-weight: 600;
+      border-left: 4px solid var(--cmaa-green-dark);
     }
 
     /* Conteúdo Principal */
@@ -83,6 +89,9 @@
     .user-info { font-size: 0.85rem; color: var(--text-muted); }
 
     .content-body { flex: 1; padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 24px; }
+
+    .view-container { display: none; flex-direction: column; gap: 24px; }
+    .view-container.active { display: flex; }
 
     /* Barra de Ações e Filtros */
     .controls {
@@ -132,6 +141,11 @@
     .card.completed { opacity: 0.65; border-left: 4px solid var(--cmaa-green-dark); }
     .card.in-progress { border-left: 4px solid var(--cmaa-lime); }
 
+    /* Cores do Semáforo nos Cards */
+    .card.semaforo-ok { border-left: 4px solid var(--success); }
+    .card.semaforo-warn { border-left: 4px solid var(--warning); }
+    .card.semaforo-late { border-left: 4px solid var(--danger); }
+
     .card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
     .task-title { font-weight: 600; font-size: 0.95rem; margin: 0; line-height: 1.4; color: var(--text-main); }
     
@@ -145,6 +159,18 @@
     .meta { font-size: 0.8rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; }
     .actions { display: flex; gap: 8px; padding-top: 10px; border-top: 1px solid var(--border); }
     .actions button { flex: 1; font-size: 0.78rem; padding: 6px 8px; }
+
+    /* Dashboard do Semáforo */
+    .semaforo-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .semaforo-kpi {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 16px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 6px;
+    }
+    .semaforo-kpi.red { border-top: 4px solid var(--danger); }
+    .semaforo-kpi.yellow { border-top: 4px solid var(--warning); }
+    .semaforo-kpi.green { border-top: 4px solid var(--success); }
+    .semaforo-kpi span:first-child { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
+    .semaforo-kpi span:last-child { font-size: 1.6rem; font-weight: 700; color: var(--cmaa-charcoal); }
 
     /* Modal */
     dialog {
@@ -179,7 +205,8 @@
       </div>
       <h2>Navegação</h2>
       <div class="menu-list">
-        <div class="menu-item">📋 Atividades (Chamados G&G)</div>
+        <button class="menu-item active" id="menu-tasks" onclick="switchView('tasks')">📋 Atividades</button>
+        <button class="menu-item" id="menu-semaforo" onclick="switchView('semaforo')">🚦 Semáforo de Prazos</button>
       </div>
     </aside>
 
@@ -195,43 +222,82 @@
 
       <div class="content-body">
         
-        <!-- VISÃO DE ATIVIDADES -->
-        <div class="controls">
-          <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
-          
-          <select id="filter-bucket" onchange="renderTasks()">
-            <option value="">Todos os Buckets (Colunas)</option>
-          </select>
+        <!-- VISÃO 1: ATIVIDADES -->
+        <div id="view-tasks" class="view-container active">
+          <div class="controls">
+            <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
+            
+            <select id="filter-bucket" onchange="renderTasks()">
+              <option value="">Todos os Buckets (Colunas)</option>
+            </select>
 
-          <select id="filter-status" onchange="renderTasks()">
-            <option value="open">Pendentes e Em Andamento</option>
-            <option value="all">Todas as Tarefas</option>
-            <option value="completed">Concluídas (100%)</option>
-          </select>
+            <select id="filter-status" onchange="renderTasks()">
+              <option value="open">Pendentes e Em Andamento</option>
+              <option value="all">Todas as Tarefas</option>
+              <option value="completed">Concluídas (100%)</option>
+            </select>
 
-          <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar</button>
+            <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar</button>
+          </div>
+
+          <div class="time-section">
+            <h3><span>⚡ Criadas esta semana</span><span id="count-week" class="count-pill">0</span></h3>
+            <div id="grid-week" class="grid"></div>
+          </div>
+
+          <div class="time-section">
+            <h3><span>📅 Criadas este mês</span><span id="count-month" class="count-pill">0</span></h3>
+            <div id="grid-month" class="grid"></div>
+          </div>
+
+          <div class="time-section">
+            <h3><span>🗂️ Outras (Anteriores)</span><span id="count-others" class="count-pill">0</span></h3>
+            <div id="grid-others" class="grid"></div>
+          </div>
         </div>
 
-        <div class="time-section">
-          <h3><span>⚡ Criadas esta semana</span><span id="count-week" class="count-pill">0</span></h3>
-          <div id="grid-week" class="grid"></div>
-        </div>
+        <!-- VISÃO 2: SEMÁFORO DE PRAZOS -->
+        <div id="view-semaforo" class="view-container">
+          <div class="semaforo-kpi-grid">
+            <div class="semaforo-kpi red">
+              <span>🔴 Atrasados</span>
+              <span id="kpi-red">0</span>
+            </div>
+            <div class="semaforo-kpi yellow">
+              <span>🟡 Atenção (Vencem hoje/amanhã)</span>
+              <span id="kpi-yellow">0</span>
+            </div>
+            <div class="semaforo-kpi green">
+              <span>🟢 No Prazo</span>
+              <span id="kpi-green">0</span>
+            </div>
+          </div>
 
-        <div class="time-section">
-          <h3><span>📅 Criadas este mês</span><span id="count-month" class="count-pill">0</span></h3>
-          <div id="grid-month" class="grid"></div>
-        </div>
+          <div class="controls">
+            <select id="semaforo-filter-status" onchange="renderSemaforo()">
+              <option value="open">Apenas Pendentes / Em Andamento</option>
+              <option value="all">Todos os Chamados</option>
+              <option value="completed">Apenas Concluídos</option>
+            </select>
+            <button class="secondary" onclick="loadChamadosPlan()">↻ Atualizar Dados</button>
+          </div>
 
-        <div class="time-section">
-          <h3><span>🗂️ Outras (Anteriores)</span><span id="count-others" class="count-pill">0</span></h3>
-          <div id="grid-others" class="grid"></div>
+          <div class="time-section">
+            <h3><span>🚨 Chamados em Alerta / Atrasados</span></h3>
+            <div id="grid-semaforo-late" class="grid"></div>
+          </div>
+
+          <div class="time-section" style="margin-top: 16px;">
+            <h3><span>✅ Chamados no Prazo</span></h3>
+            <div id="grid-semaforo-ok" class="grid"></div>
+          </div>
         </div>
 
       </div>
     </div>
   </div>
 
-  <!-- Modal de Edição, Mudança de Bucket e Exclusão -->
+  <!-- Modal de Edição -->
   <dialog id="edit-modal">
     <h3 style="margin-top:0; color: var(--cmaa-charcoal);">Editar / Gerenciar Atividade</h3>
     <input type="hidden" id="edit-task-id">
@@ -244,9 +310,7 @@
 
     <div class="form-group">
       <label>Bucket (Coluna)</label>
-      <select id="edit-bucket">
-        <!-- Preenchido dinamicamente -->
-      </select>
+      <select id="edit-bucket"></select>
     </div>
     
     <div class="form-group">
@@ -294,6 +358,16 @@
   let userCache = {};  
   let chamadosPlanId = null;
 
+  // Regra de Prazos por Bucket (dias corridos)
+  const SLA_RULES = {
+    "chamados": 5,
+    "projetos": 10,
+    "problema": 2,
+    "duvidas": 5,
+    "gerot": 10,
+    "acao tematica": 2
+  };
+
   window.addEventListener("DOMContentLoaded", () => {
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
@@ -323,6 +397,21 @@
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("app-screen").style.display = "flex";
     document.getElementById("user-info").innerText = `${currentAccount.name} (${currentAccount.username})`;
+  }
+
+  function switchView(viewName) {
+    document.querySelectorAll(".menu-item").forEach(el => el.classList.remove("active"));
+    document.querySelectorAll(".view-container").forEach(el => el.classList.remove("active"));
+
+    if (viewName === 'tasks') {
+      document.getElementById("menu-tasks").classList.add("active");
+      document.getElementById("view-tasks").classList.add("active");
+      renderTasks();
+    } else {
+      document.getElementById("menu-semaforo").classList.add("active");
+      document.getElementById("view-semaforo").classList.add("active");
+      renderSemaforo();
+    }
   }
 
   async function getAccessToken() {
@@ -392,7 +481,12 @@
 
       const tasksData = await graphFetch(`/planner/plans/${chamadosPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
-      renderTasks();
+      
+      if (document.getElementById("view-tasks").classList.contains("active")) {
+        renderTasks();
+      } else {
+        renderSemaforo();
+      }
     } catch (error) {
       console.error(error);
     }
@@ -413,6 +507,37 @@
       names.push(userCache[userId]);
     }
     return names.join(", ");
+  }
+
+  // Cálculo do Semáforo para cada tarefa
+  function calculateSemaforo(task) {
+    if (task.percentComplete === 100) return { status: 'ok', label: 'Concluído', class: 'semaforo-ok' };
+    if (!task.createdDateTime) return { status: 'ok', label: 'Sem Data', class: 'semaforo-ok' };
+
+    const bucketName = (bucketsMap[task.bucketId] || "").toLowerCase().trim();
+    // Procura a regra correspondente ou assume 5 dias padrão
+    let daysLimit = 5;
+    for (const [key, val] of Object.entries(SLA_RULES)) {
+      if (bucketName.includes(key)) {
+        daysLimit = val;
+        break;
+      }
+    }
+
+    const createdDate = new Date(task.createdDateTime);
+    const dueDate = new Date(createdDate.getTime() + (daysLimit * 24 * 60 * 60 * 1000));
+    const now = new Date();
+
+    const diffTime = dueDate - now;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+      return { status: 'late', label: `Atrasado (${Math.abs(diffDays)}d)`, class: 'semaforo-late', dueDate };
+    } else if (diffDays <= 2) {
+      return { status: 'warn', label: `Atenção (Vence em ${diffDays}d)`, class: 'semaforo-warn', dueDate };
+    } else {
+      return { status: 'ok', label: `No Prazo (${diffDays}drestantes)`, class: 'semaforo-ok', dueDate };
+    }
   }
 
   async function renderTasks() {
@@ -452,18 +577,18 @@
       
       let statusLabel = "Não iniciada";
       let badgeClass = "pending";
-      let cardClass = "";
 
-      if (isDone) { statusLabel = "Concluída"; badgeClass = ""; cardClass = "completed"; }
-      else if (isProgress) { statusLabel = "Em andamento"; badgeClass = "progress"; cardClass = "in-progress"; }
+      if (isDone) { statusLabel = "Concluída"; badgeClass = ""; }
+      else if (isProgress) { statusLabel = "Em andamento"; badgeClass = "progress"; }
 
+      const semaforo = calculateSemaforo(task);
       const createdFormatted = task.createdDateTime ? new Date(task.createdDateTime).toLocaleDateString("pt-BR") : "N/D";
-      const dueFormatted = task.dueDateTime ? new Date(task.dueDateTime).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "Sem prazo";
+      const limitFormatted = semaforo.dueDate ? semaforo.dueDate.toLocaleDateString("pt-BR") : "N/D";
       const bucketName = bucketsMap[task.bucketId] || "Geral";
       const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
 
       const cardHtml = `
-        <div class="card ${cardClass}">
+        <div class="card ${semaforo.class}">
           <div>
             <div class="card-header">
               <p class="task-title">${task.title}</p>
@@ -472,8 +597,8 @@
             <div class="meta" style="margin-top:8px;">
               <span>📌 <strong>Bucket:</strong> ${bucketName}</span>
               <span>👤 <strong>Responsável:</strong> ${assigneeName}</span>
-              <span>🕒 <strong>Criada em:</strong> ${createdFormatted}</span>
-              <span>📅 <strong>Prazo:</strong> ${dueFormatted}</span>
+              <span>🕒 <strong>Abertura:</strong> ${createdFormatted}</span>
+              <span>🚨 <strong>Limite (${semaforo.label}):</strong> ${limitFormatted}</span>
             </div>
           </div>
 
@@ -502,9 +627,76 @@
     document.getElementById("count-month").innerText = monthCount;
     document.getElementById("count-others").innerText = othersCount;
 
-    gridWeek.innerHTML = weekCount > 0 ? weekHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa criada nesta semana.</p>";
-    gridMonth.innerHTML = monthCount > 0 ? monthHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa criada neste mês.</p>";
+    gridWeek.innerHTML = weekCount > 0 ? weekHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa nesta semana.</p>";
+    gridMonth.innerHTML = monthCount > 0 ? monthHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa neste mês.</p>";
     gridOthers.innerHTML = othersCount > 0 ? othersHtml : "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhuma tarefa anterior.</p>";
+  }
+
+  // Renderizar a Visão de Semáforo
+  async function renderSemaforo() {
+    const statusFilter = document.getElementById("semaforo-filter-status").value;
+    const gridLate = document.getElementById("grid-semaforo-late");
+    const gridOk = document.getElementById("grid-semaforo-ok");
+
+    gridLate.innerHTML = gridOk.innerHTML = "<p style='color:var(--text-muted); font-size:0.85rem;'>Calculando semáforo...</p>";
+
+    let filtered = allTasks.filter(t => {
+      if (statusFilter === "open" && t.percentComplete === 100) return false;
+      if (statusFilter === "completed" && t.percentComplete !== 100) return false;
+      return true;
+    });
+
+    let countRed = 0, countYellow = 0, countGreen = 0;
+    let lateHtml = "", okHtml = "";
+
+    for (const task of filtered) {
+      const assigneeName = await getAssigneeNames(task.assignments);
+      const semaforo = calculateSemaforo(task);
+      const bucketName = bucketsMap[task.bucketId] || "Geral";
+      const createdFormatted = task.createdDateTime ? new Date(task.createdDateTime).toLocaleDateString("pt-BR") : "N/D";
+      const limitFormatted = semaforo.dueDate ? semaforo.dueDate.toLocaleDateString("pt-BR") : "N/D";
+      const safeEtag = task["@odata.etag"].replace(/"/g, '&quot;');
+      const isDone = task.percentComplete === 100;
+
+      if (semaforo.status === 'late') countRed++;
+      else if (semaforo.status === 'warn') countYellow++;
+      else countGreen++;
+
+      const cardHtml = `
+        <div class="card ${semaforo.class}">
+          <div>
+            <div class="card-header">
+              <p class="task-title">${task.title}</p>
+              <span class="badge ${semaforo.status === 'late' ? 'danger' : ''}">${semaforo.label}</span>
+            </div>
+            <div class="meta" style="margin-top:8px;">
+              <span>📌 <strong>Bucket:</strong> ${bucketName}</span>
+              <span>👤 <strong>Responsável:</strong> ${assigneeName}</span>
+              <span>🕒 <strong>Abertura:</strong> ${createdFormatted}</span>
+              <span>🚨 <strong>Prazo Limite:</strong> ${limitFormatted}</span>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="secondary" onclick="openEditModal('${task.id}')">✏️ Editar</button>
+            ${!isDone ? `<button onclick="quickUpdateStatus('${task.id}', '${safeEtag}', 100)">✔ Concluir</button>` : ''}
+          </div>
+        </div>
+      `;
+
+      if (semaforo.status === 'late' || semaforo.status === 'warn') {
+        lateHtml += cardHtml;
+      } else {
+        okHtml += cardHtml;
+      }
+    }
+
+    document.getElementById("kpi-red").innerText = countRed;
+    document.getElementById("kpi-yellow").innerText = countYellow;
+    document.getElementById("kpi-green").innerText = countGreen;
+
+    gridLate.innerHTML = lateHtml || "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhum chamado em alerta ou atrasado! 🎉</p>";
+    gridOk.innerHTML = okHtml || "<p style='color:var(--text-muted); font-size:0.85rem;'>Nenhum chamado no prazo encontrado.</p>";
   }
 
   async function quickUpdateStatus(taskId, etag, newPercent) {
