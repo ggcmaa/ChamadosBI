@@ -780,9 +780,6 @@
   async function quickUpdateStatus(taskId, etag, newPercent) {
     try {
       const payload = { percentComplete: newPercent };
-      if (newPercent === 100) {
-        payload.completedDateTime = new Date().toISOString();
-      }
       await graphFetch(`/planner/tasks/${taskId}`, "PATCH", payload, etag);
       loadChamadosPlan();
     } catch (error) {
@@ -829,10 +826,6 @@
       percentComplete: percentComplete,
       dueDateTime: dueDate ? `${dueDate}T18:00:00Z` : null
     };
-
-    if (percentComplete === 100) {
-      taskPayload.completedDateTime = new Date().toISOString();
-    }
 
     try {
       await graphFetch(`/planner/tasks/${id}`, "PATCH", taskPayload, etag);
