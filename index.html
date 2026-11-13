@@ -422,7 +422,8 @@
     cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
   };
 
-  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All", "Chat.ReadWrite", "IM.ReadWrite"];
+  // Escopos ajustados para remover o IM.ReadWrite que causava o erro de escopo inexistente
+  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All", "Chat.ReadWrite"];
   const msalInstance = new msal.PublicClientApplication(msalConfig);
 
   let currentAccount = null;
@@ -460,7 +461,6 @@
 
   async function signIn() {
     try {
-      // Utiliza redirect para maior compatibilidade com GitHub Pages e evitar bloqueio de popups
       await msalInstance.loginRedirect({ scopes: graphScopes });
     } catch (error) {
       console.error("Erro no login:", error);
