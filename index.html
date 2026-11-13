@@ -422,8 +422,8 @@
     cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
   };
 
-  // Escopos ajustados para remover o IM.ReadWrite que causava o erro de escopo inexistente
-  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All", "Chat.ReadWrite"];
+  // Apenas escopos padrão aprovados e essenciais
+  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All"];
   const msalInstance = new msal.PublicClientApplication(msalConfig);
 
   let currentAccount = null;
@@ -663,7 +663,7 @@
       document.getElementById("teams-task-select").value = "";
     } catch (error) {
       console.error("Erro ao enviar mensagem via Teams:", error);
-      alert("Erro ao enviar mensagem. Verifique se o e-mail do cliente está correto e se as permissões do Teams estão ativas.");
+      alert("Erro ao enviar mensagem. Certifique-se de que o chat via Graph API está liberado pelo administrador do tenant para contas corporativas.");
     }
   }
 
