@@ -417,7 +417,7 @@
     auth: {
       clientId: "92b0526e-e8f0-4cca-a711-b557e5c15fbc",
       authority: "https://login.microsoftonline.com/ca4b9034-c4ac-4ca2-b97e-1e57700b0d20",
-      redirectUri: window.location.origin + "/" 
+      redirectUri: window.location.origin + window.location.pathname
     },
     cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
   };
@@ -445,19 +445,23 @@
     "acao tematica": 2
   };
 
-  window.addEventListener("DOMContentLoaded", () => {
-    const accounts = msalInstance.getAllAccounts();
-    if (accounts.length > 0) {
-      currentAccount = accounts[0];
-      validateAndStart();
+  window.addEventListener("DOMContentLoaded", async () => {
+    try {
+      await msalInstance.handleRedirectPromise();
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length > 0) {
+        currentAccount = accounts[0];
+        validateAndStart();
+      }
+    } catch (error) {
+      console.error("Erro no handleRedirectPromise:", error);
     }
   });
 
   async function signIn() {
     try {
-      const loginResponse = await msalInstance.loginPopup({ scopes: graphScopes });
-      currentAccount = loginResponse.account;
-      validateAndStart();
+      // Utiliza redirect para maior compatibilidade com GitHub Pages e evitar bloqueio de popups
+      await msalInstance.loginRedirect({ scopes: graphScopes });
     } catch (error) {
       console.error("Erro no login:", error);
       alert("Falha na autenticação. Verifique o console.");
@@ -478,7 +482,7 @@
   }
 
   function signOut() {
-    msalInstance.logoutPopup({ account: currentAccount });
+    msalInstance.logoutRedirect({ account: currentAccount });
   }
 
   function showAppScreen() {
@@ -502,7 +506,7 @@
     } else if (viewName === 'teams') {
       document.getElementById("menu-teams").classList.add("active");
       document.getElementById("view-teams").classList.add("active");
-      populateTeamsTaskSelect(); // Atualiza a lista sempre que a aba é aberta
+      populateTeamsTaskSelect();
     }
   }
 
@@ -574,7 +578,6 @@
       const tasksData = await graphFetch(`/planner/plans/${chamadosPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
       
-      // Atualiza o select do Teams com as tarefas carregadas
       populateTeamsTaskSelect();
 
       if (document.getElementById("view-tasks").classList.contains("active")) {
