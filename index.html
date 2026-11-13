@@ -98,13 +98,13 @@
       display: flex; gap: 12px; background: var(--bg-card); padding: 16px; border-radius: 8px;
       border: 1px solid var(--border); box-shadow: var(--shadow); align-items: center; flex-wrap: wrap;
     }
-    input[type="text"], input[type="date"], select, textarea {
+    input[type="text"], input[type="date"], input[type="email"], select, textarea {
       background: #f8faf9; color: var(--text-main); border: 1px solid var(--border);
-      padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.9rem;
+      padding: 8px 12px; border-radius: 6px; outline: none; font-size: 0.9rem; width: 100%;
     }
-    input[type="text"]:focus, select:focus, textarea:focus { border-color: var(--cmaa-green-dark); }
+    input[type="text"]:focus, select:focus, textarea:focus, input[type="email"]:focus { border-color: var(--cmaa-green-dark); }
     input[type="text"] { flex: 1; min-width: 200px; }
-    textarea { width: 100%; resize: vertical; min-height: 90px; }
+    textarea { resize: vertical; min-height: 110px; }
 
     /* Botões */
     button {
@@ -201,6 +201,12 @@
     .semaforo-kpi span:first-child { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; }
     .semaforo-kpi span:last-child { font-size: 1.6rem; font-weight: 700; color: var(--cmaa-charcoal); }
 
+    /* Painel Teams */
+    .teams-panel {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      padding: 24px; box-shadow: var(--shadow); max-width: 700px; display: flex; flex-direction: column; gap: 16px;
+    }
+
     /* Modal */
     dialog {
       background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border);
@@ -219,7 +225,7 @@
     <div class="login-card">
       <img src="CMAA.png" alt="Logo CMAA" class="login-logo">
       <h1>Gestão de Atividades</h1>
-      <p>Acesse com sua conta corporativa Microsoft para gerenciar as tarefas do Chamados G&G.</p>
+      <p>Acesse com sua conta corporativa Microsoft autorizada para gerenciar o G&G.</p>
       <button onclick="signIn()" style="width: 100%; padding: 12px 24px; font-size: 1rem;">Entrar com Microsoft</button>
     </div>
   </div>
@@ -236,6 +242,7 @@
       <div class="menu-list">
         <button class="menu-item active" id="menu-tasks" onclick="switchView('tasks')">📋 Atividades</button>
         <button class="menu-item" id="menu-semaforo" onclick="switchView('semaforo')">🚦 Semáforo de Prazos</button>
+        <button class="menu-item" id="menu-teams" onclick="switchView('teams')">💬 Comunicação Teams</button>
       </div>
     </aside>
 
@@ -254,10 +261,7 @@
         <!-- VISÃO 1: ATIVIDADES -->
         <div id="view-tasks" class="view-container active">
           
-          <!-- Cards de Resumo e Volume por Bucket -->
-          <div id="summary-cards-container" class="summary-grid">
-            <!-- Preenchido dinamicamente -->
-          </div>
+          <div id="summary-cards-container" class="summary-grid"></div>
 
           <div class="controls">
             <input type="text" id="filter-search" placeholder="🔍 Pesquisar por nome da atividade ou responsável..." oninput="renderTasks()">
@@ -328,6 +332,35 @@
           </div>
         </div>
 
+        <!-- VISÃO 3: COMUNICAÇÃO TEAMS -->
+        <div id="view-teams" class="view-container">
+          <div class="teams-panel">
+            <h3 style="margin-top:0; color: var(--cmaa-charcoal);">Enviar Mensagem via Microsoft Teams</h3>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin:0;">Informe o e-mail do cliente interno, selecione o chamado vinculado (opcional) e digite sua mensagem de retorno.</p>
+            
+            <div class="form-group">
+              <label><strong>Vincular a um Chamado</strong></label>
+              <select id="teams-task-select">
+                <option value="">Nenhum chamado vinculado (Mensagem direta)</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label><strong>E-mail do Cliente Interno</strong></label>
+              <input type="email" id="teams-client-email" placeholder="ex: usuario@cmaa.ind.br">
+            </div>
+
+            <div class="form-group">
+              <label><strong>Mensagem de Retorno</strong></label>
+              <textarea id="teams-message" placeholder="Digite aqui a mensagem de atualização sobre o chamado..."></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+              <button onclick="sendTeamsMessage()">📤 Enviar Mensagem no Teams</button>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
@@ -389,7 +422,7 @@
     cache: { cacheLocation: "sessionStorage", storeAuthStateInCookie: false }
   };
 
-  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All"];
+  const graphScopes = ["User.Read", "Tasks.ReadWrite", "Group.Read.All", "Directory.Read.All", "Chat.ReadWrite", "IM.ReadWrite"];
   const msalInstance = new msal.PublicClientApplication(msalConfig);
 
   let currentAccount = null;
@@ -398,7 +431,12 @@
   let userCache = {};  
   let chamadosPlanId = null;
 
-  // Regra de Prazos por Bucket (dias corridos)
+  // Lista de e-mails autorizados
+  const AUTHORIZED_USERS = [
+    "c1010556@cmaa.ind.br",
+    "gente.gestao@cmaa.ind.br"
+  ];
+
   const SLA_RULES = {
     "chamados": 5,
     "projetos": 10,
@@ -412,8 +450,7 @@
     const accounts = msalInstance.getAllAccounts();
     if (accounts.length > 0) {
       currentAccount = accounts[0];
-      showAppScreen();
-      findChamadosPlan();
+      validateAndStart();
     }
   });
 
@@ -421,12 +458,25 @@
     try {
       const loginResponse = await msalInstance.loginPopup({ scopes: graphScopes });
       currentAccount = loginResponse.account;
-      showAppScreen();
-      findChamadosPlan();
+      validateAndStart();
     } catch (error) {
       console.error("Erro no login:", error);
       alert("Falha na autenticação. Verifique o console.");
     }
+  }
+
+  function validateAndStart() {
+    const userEmail = (currentAccount.username || "").toLowerCase().trim();
+    
+    // Validação estrita dos usuários permitidos
+    if (!AUTHORIZED_USERS.includes(userEmail)) {
+      alert(`Acesso Negado!\n\nO usuário "${userEmail}" não tem permissão para acessar este aplicativo.`);
+      signOut();
+      return;
+    }
+
+    showAppScreen();
+    findChamadosPlan();
   }
 
   function signOut() {
@@ -447,10 +497,14 @@
       document.getElementById("menu-tasks").classList.add("active");
       document.getElementById("view-tasks").classList.add("active");
       renderTasks();
-    } else {
+    } else if (viewName === 'semaforo') {
       document.getElementById("menu-semaforo").classList.add("active");
       document.getElementById("view-semaforo").classList.add("active");
       renderSemaforo();
+    } else if (viewName === 'teams') {
+      document.getElementById("menu-teams").classList.add("active");
+      document.getElementById("view-teams").classList.add("active");
+      populateTeamsTaskSelect();
     }
   }
 
@@ -524,11 +578,85 @@
       
       if (document.getElementById("view-tasks").classList.contains("active")) {
         renderTasks();
-      } else {
+      } else if (document.getElementById("view-semaforo").classList.contains("active")) {
         renderSemaforo();
       }
     } catch (error) {
       console.error(error);
+    }
+  }
+
+  function populateTeamsTaskSelect() {
+    const select = document.getElementById("teams-task-select");
+    let html = '<option value="">Nenhum chamado vinculado (Mensagem direta)</option>';
+    allTasks.forEach(t => {
+      html += `<option value="${t.id}">${t.title}</option>`;
+    });
+    select.innerHTML = html;
+  }
+
+  async function sendTeamsMessage() {
+    const clientEmail = document.getElementById("teams-client-email").value.trim();
+    const taskId = document.getElementById("teams-task-select").value;
+    const messageText = document.getElementById("teams-message").value.trim();
+
+    if (!clientEmail) {
+      alert("Por favor, preencha o e-mail do cliente interno.");
+      return;
+    }
+    if (!messageText) {
+      alert("Por favor, digite a mensagem de retorno.");
+      return;
+    }
+
+    try {
+      // 1. Localizar o ID do usuário no diretório pelo e-mail
+      const userRes = await graphFetch(`/users/${encodeURI(clientEmail)}?$select=id,displayName`);
+      const recipientId = userRes.id;
+
+      // 2. Montar o texto final incluindo o vínculo com o chamado, se houver
+      let finalMessage = messageText;
+      if (taskId) {
+        const linkedTask = allTasks.find(t => t.id === taskId);
+        if (linkedTask) {
+          finalMessage = `📋 *Retorno referente ao Chamado:* "${linkedTask.title}"\n\n${messageText}`;
+        }
+      }
+
+      // 3. Criar ou obter chat 1:1 com o usuário e enviar a mensagem
+      const chatBody = {
+        chatType: "oneOnOne",
+        members: [
+          {
+            "@odata.type": "#microsoft.graph.aadUserConversationMember",
+            roles: ["owner"],
+            "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${currentAccount.username}')`
+          },
+          {
+            "@odata.type": "#microsoft.graph.aadUserConversationMember",
+            roles: ["owner"],
+            "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${recipientId}')`
+          }
+        ]
+      };
+
+      const chat = await graphFetch(`/chats`, "POST", chatBody);
+      
+      // 4. Enviar mensagem no chat criado
+      const messageBody = {
+        body: {
+          content: finalMessage
+        }
+      };
+      await graphFetch(`/chats/${chat.id}/messages`, "POST", messageBody);
+
+      alert("Mensagem enviada com sucesso no Teams para " + clientEmail + "!");
+      document.getElementById("teams-message").value = "";
+      document.getElementById("teams-client-email").value = "";
+      document.getElementById("teams-task-select").value = "";
+    } catch (error) {
+      console.error("Erro ao enviar mensagem via Teams:", error);
+      alert("Erro ao enviar mensagem. Verifique se o e-mail do cliente está correto e se as permissões do Teams estão ativas.");
     }
   }
 
@@ -578,7 +706,6 @@
     }
   }
 
-  // Renderizar a Aba de Atividades (com cards de resumo e volume por bucket)
   async function renderTasks() {
     const searchText = document.getElementById("filter-search").value.toLowerCase();
     const selectedBucket = document.getElementById("filter-bucket").value;
@@ -598,7 +725,6 @@
       return true;
     });
 
-    // 1. Renderizar Cards de Resumo (Total + Volume por Bucket)
     let bucketCounts = {};
     Object.values(bucketsMap).forEach(bName => bucketCounts[bName] = 0);
     filtered.forEach(t => {
@@ -623,7 +749,6 @@
     });
     summaryContainer.innerHTML = summaryHtml;
 
-    // 2. Classificação Temporal por Data de Criação
     const now = new Date();
     const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay(), 0, 0, 0);
     const endOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (6 - now.getDay()), 23, 59, 59);
