@@ -341,7 +341,7 @@
             <div class="form-group">
               <label><strong>Vincular a um Chamado</strong></label>
               <select id="teams-task-select">
-                <option value="">Nenhum chamado vinculado (Mensagem direta)</option>
+                <option value="">Carregando chamados...</option>
               </select>
             </div>
 
@@ -431,7 +431,6 @@
   let userCache = {};  
   let chamadosPlanId = null;
 
-  // Lista de e-mails autorizados
   const AUTHORIZED_USERS = [
     "c1010556@cmaa.ind.br",
     "gente.gestao@cmaa.ind.br"
@@ -468,7 +467,6 @@
   function validateAndStart() {
     const userEmail = (currentAccount.username || "").toLowerCase().trim();
     
-    // Validação estrita dos usuários permitidos
     if (!AUTHORIZED_USERS.includes(userEmail)) {
       alert(`Acesso Negado!\n\nO usuário "${userEmail}" não tem permissão para acessar este aplicativo.`);
       signOut();
@@ -504,7 +502,7 @@
     } else if (viewName === 'teams') {
       document.getElementById("menu-teams").classList.add("active");
       document.getElementById("view-teams").classList.add("active");
-      populateTeamsTaskSelect();
+      populateTeamsTaskSelect(); // Atualiza a lista sempre que a aba é aberta
     }
   }
 
@@ -576,6 +574,9 @@
       const tasksData = await graphFetch(`/planner/plans/${chamadosPlanId}/tasks`);
       allTasks = (tasksData.value || []).sort((a, b) => new Date(b.createdDateTime) - new Date(a.createdDateTime));
       
+      // Atualiza o select do Teams com as tarefas carregadas
+      populateTeamsTaskSelect();
+
       if (document.getElementById("view-tasks").classList.contains("active")) {
         renderTasks();
       } else if (document.getElementById("view-semaforo").classList.contains("active")) {
@@ -588,10 +589,17 @@
 
   function populateTeamsTaskSelect() {
     const select = document.getElementById("teams-task-select");
+    if (!select) return;
+    
     let html = '<option value="">Nenhum chamado vinculado (Mensagem direta)</option>';
-    allTasks.forEach(t => {
-      html += `<option value="${t.id}">${t.title}</option>`;
-    });
+    if (allTasks && allTasks.length > 0) {
+      allTasks.forEach(t => {
+        const bucketName = bucketsMap[t.bucketId] || "Geral";
+        html += `<option value="${t.id}">[${bucketName}] ${t.title}</option>`;
+      });
+    } else {
+      html = '<option value="">Carregando chamados...</option>';
+    }
     select.innerHTML = html;
   }
 
@@ -610,11 +618,9 @@
     }
 
     try {
-      // 1. Localizar o ID do usuário no diretório pelo e-mail
       const userRes = await graphFetch(`/users/${encodeURI(clientEmail)}?$select=id,displayName`);
       const recipientId = userRes.id;
 
-      // 2. Montar o texto final incluindo o vínculo com o chamado, se houver
       let finalMessage = messageText;
       if (taskId) {
         const linkedTask = allTasks.find(t => t.id === taskId);
@@ -623,7 +629,6 @@
         }
       }
 
-      // 3. Criar ou obter chat 1:1 com o usuário e enviar a mensagem
       const chatBody = {
         chatType: "oneOnOne",
         members: [
@@ -642,7 +647,6 @@
 
       const chat = await graphFetch(`/chats`, "POST", chatBody);
       
-      // 4. Enviar mensagem no chat criado
       const messageBody = {
         body: {
           content: finalMessage
